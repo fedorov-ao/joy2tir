@@ -5,7 +5,7 @@ SOURCES = NPClient.cpp
 OBJECTS = $(SOURCES:%.cpp=%.o)
 #If compiled with -On, dll can not be loaded
 CFLAGS = -std=c++11 -I. -D_WIN32_WINNT=0x0501 -DNDEBUG -Os -ffunction-sections -fdata-sections
-LDFLAGS = -static-libstdc++ -static-libgcc -shared -s -Wl,--gc-sections,--exclude-all-symbols,--kill-at
+LDFLAGS = -static-libstdc++ -static-libgcc -shared -s -Wl,--gc-sections,--exclude-all-symbols,--kill-at,-lwinmm
 INSTALL_PATH = ./bin
 
 %.o: %.cpp $(HEADERS)
