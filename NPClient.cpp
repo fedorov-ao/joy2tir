@@ -53,7 +53,7 @@ void log_message(const T&... t)
 }
 
 /* Joysticks */
-enum class NativeAxisID { x, first_axis = x, y, z, r, u, v, num_axes };
+enum class NativeAxisID { x = 0, first_axis = x, y = 1, z = 2, r = 3, u = 4, v = 5, num_axes = 6 };
 
 std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID id)
 {
@@ -134,7 +134,7 @@ std::string describe_joyinfoex(JOYINFOEX& ji)
   return ss.str();
 }
 
-enum class AxisID {  x, first_axis = x, y, z, rx, ry, rz, num_axes };
+enum class AxisID {  x = 0, first_axis = x, y = 1, z = 2, rx = 3, ry = 4, rz = 5, num_axes = 6 };
 
 class Joystick
 {
@@ -190,9 +190,9 @@ private:
       { AxisID::x, NativeAxisID::x },
       { AxisID::y, NativeAxisID::y },
       { AxisID::z, NativeAxisID::z },
-      { AxisID::rx, NativeAxisID::u },
-      { AxisID::ry, NativeAxisID::v },
-      { AxisID::rz, NativeAxisID::r }
+      { AxisID::rx, NativeAxisID::r },
+      { AxisID::ry, NativeAxisID::u },
+      { AxisID::rz, NativeAxisID::v }
     };
     for (auto const & d : mapping)
       if (d.ai == ai)
@@ -286,7 +286,7 @@ Pose make_pose(Joystick const & j)
 {
   Pose pose;
   pose.yaw = lerp(j.get_axis_value(AxisID::rx), -1.0f, 1.0f, -180.0f, 180.0f);
-  pose.pitch = lerp(j.get_axis_value(AxisID::ry), -1.0f, 1.0f, -90.0f, 90.0f);
+  pose.pitch = lerp(j.get_axis_value(AxisID::ry), -1.0f, 1.0f, -180.0f, 180.0f);
   pose.roll = lerp(j.get_axis_value(AxisID::rz), -1.0f, 1.0f, -180.0f, 180.0f);
   pose.x = lerp(j.get_axis_value(AxisID::x), -1.0f, 1.0f, -1.0f, 1.0f);
   pose.y = lerp(j.get_axis_value(AxisID::y), -1.0f, 1.0f, -1.0f, 1.0f);
@@ -306,6 +306,14 @@ void handle(void* data)
     return;
   g_pj->update();
   auto const pose = make_pose(*g_pj);
+  log_message(
+    "x: ", g_pj->get_axis_value(AxisID::x),
+    "; y: ", g_pj->get_axis_value(AxisID::y),
+    "; z: ", g_pj->get_axis_value(AxisID::z),
+    "; rx: ", g_pj->get_axis_value(AxisID::rx),
+    "; ry: ", g_pj->get_axis_value(AxisID::ry),
+    "; rz: ", g_pj->get_axis_value(AxisID::rz)
+  );
   log_message("Pose: ", pose);
   set_trackir_data(data, pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
 }
