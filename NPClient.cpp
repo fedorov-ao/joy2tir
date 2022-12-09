@@ -43,13 +43,94 @@ void log_message(const T&... t)
   stream << std::endl;
 }
 
-template <typename T, typename K>
-void log_message(const T& t, const K& k)
+/* Joysticks */
+std::string describe_joycaps(JOYCAPS& jc)
 {
-  auto stream = get_log_stream();
-  stream << t << k << std::endl;
+  std::stringstream ss;
+  ss <<
+  "wMid: " << jc.wMid <<
+  "; wPid: " << jc.wPid <<
+  "; szPname: " << jc.szPname <<
+  "; wXmin: " << jc.wXmin <<
+  "; wXmax: " << jc.wXmax <<
+  "; wYmin: " << jc.wYmin <<
+  "; wYmax: " << jc.wYmax <<
+  "; wZmin: " << jc.wZmin <<
+  "; wZmax: " << jc.wZmax <<
+  "; wNumButtons: " << jc.wNumButtons <<
+  "; wPeriodMin: " << jc.wPeriodMin <<
+  "; wPeriodMax: " << jc.wPeriodMax <<
+  "; wRmin: " << jc.wRmin <<
+  "; wRmax: " << jc.wRmax <<
+  "; wUmin: " << jc.wUmin <<
+  "; wUmax: " << jc.wUmax <<
+  "; wVmin: " << jc.wVmin <<
+  "; wVmax: " << jc.wVmax <<
+  "; wCaps: " << jc.wCaps <<
+  "; wMaxAxes: " << jc.wMaxAxes <<
+  "; wNumAxes: " << jc.wNumAxes <<
+  "; wMaxButtons: " << jc.wMaxButtons <<
+  "; szRegKey: " << jc.szRegKey <<
+  "; szOEMVxD: " << jc.szOEMVxD;
+  return ss.str();
 }
 
+std::string describe_joyinfoex(JOYINFOEX& ji)
+{
+  std::stringstream ss;
+  ss <<
+  "dwSize: " << ji.dwSize <<
+  "; dwFlags: " << ji.dwFlags <<
+  "; dwXpos: " << ji.dwXpos <<
+  "; dwYpos: " << ji.dwYpos <<
+  "; dwZpos: " << ji.dwZpos <<
+  "; dwRpos: " << ji.dwRpos <<
+  "; dwUpos: " << ji.dwUpos <<
+  "; dwVpos: " << ji.dwVpos <<
+  "; dwButtons: " << ji.dwButtons <<
+  "; dwButtonNumber: " << ji.dwButtonNumber <<
+  "; dwPOV: " << ji.dwPOV <<
+  "; dwReserved1: " << ji.dwReserved1 <<
+  "; dwReserved2: " << ji.dwReserved2;
+  return ss.str();
+}
+
+void initialize()
+{
+  UINT numJoysticks = joyGetNumDevs();
+  log_message("Number of joystics: ", numJoysticks);
+
+  JOYINFOEX ji;
+  memset(&ji, 0, sizeof(ji));
+  ji.dwSize = sizeof(ji);
+  ji.dwFlags = JOY_RETURNALL;
+  for (UINT joyID = 0; joyID < numJoysticks; ++joyID)
+  {
+    MMRESULT mmr = joyGetPosEx(joyID, &ji);
+    if (JOYERR_NOERROR == mmr)
+    {
+      log_message("Joystick connected: ", joyID);
+      JOYCAPS jc;
+      memset(&jc, 0, sizeof(jc));
+      mmr = joyGetDevCaps(joyID, &jc, sizeof(jc));
+      if (JOYERR_NOERROR == mmr)
+      {
+        auto desc = describe_joycaps(jc);
+        log_message("Joystick ", joyID, " JoyCaps: ", desc);
+        desc = describe_joyinfoex(ji);
+        log_message("Joystick ", joyID, " JoyInfoEx: ", desc);
+      }
+      else
+      {
+        log_message("Error getting joystick ", joyID, " caps; reason: ", mmr);
+      }
+    }
+    else if (JOYERR_UNPLUGGED == mmr)
+      log_message("Joystick disconnected: ", joyID);
+    else
+      log_message("Error accessing joystick: ", joyID, "; reason: ", mmr);
+  }
+}
 
 /* TrackIR */
 namespace trackir
@@ -111,6 +192,8 @@ int __stdcall NP_ReCenter(void)
 int __stdcall NP_RegisterWindowHandle(void *handle)
 {
   log_message("NP_RegisterWindowHandle, handle: ", handle);
+
+  initialize();
 
   return 0;
 }
