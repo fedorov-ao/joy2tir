@@ -231,7 +231,7 @@ void initialize()
         log_message("Joystick ", joyID, " JoyCaps: ", desc);
         desc = describe_joyinfoex(ji);
         log_message("Joystick ", joyID, " JoyInfoEx: ", desc);
-        if (strcmp("head", jc.szPname) == 0)
+        if (joyID == 1)
         {
           log_message("Using joystick ", joyID);
           g_pj = new Joystick(joyID);
@@ -294,18 +294,19 @@ Pose make_pose(Joystick const & j)
   return pose;
 }
 
+std::ostream & operator<<(std::ostream & os, Pose const & pose)
+{
+  return os << "yaw: " << pose.yaw << "; pitch: " << pose.pitch << "; roll: "<< pose.roll
+    << "; x: " << pose.x << "; y: " << pose.y << "; z: " << pose.z;
+}
+
 void handle(void* data)
 {
   if (nullptr == g_pj)
     return;
   g_pj->update();
-  std::stringstream ss;
-  for (auto ai = static_cast<int>(AxisID::first_axis); ai < static_cast<int>(AxisID::num_axes); ++ai)
-  {
-    ss << g_pj->get_axis_value(static_cast<AxisID>(ai)) << " ";
-  }
-  log_message("Joystick axes: ", ss.str());
   auto const pose = make_pose(*g_pj);
+  log_message("Pose: ", pose);
   set_trackir_data(data, pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
 }
 
