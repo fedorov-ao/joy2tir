@@ -10,6 +10,15 @@
 #include <windows.h> //joystick API
 
 
+template <typename F, typename T>
+T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
+{
+  //tv = a*fv + b
+  auto a = (te - tb) / (fe - fb);
+  auto b = te - a*fe;
+  return a*fv + b;
+}
+
 /* Logging */
 std::string get_log_path()
 {
@@ -95,6 +104,69 @@ std::string describe_joyinfoex(JOYINFOEX& ji)
   return ss.str();
 }
 
+struct AxisID
+{
+  enum type { x, y, z, rx, ry, rz, num_axes };
+};
+
+class Joystick
+{
+public:
+  float get_axis_value(int axisID) const
+  {
+    return this->axes_[axisID];
+  }
+
+  void update()
+  {
+    JOYINFOEX ji;
+    auto const sji = sizeof(ji);
+    memset(&ji, 0, sji);
+    ji.dwSize = sji;
+    ji.dwFlags = JOY_RETURNALL;
+    auto mmr = joyGetPosEx(this->joyID_, &ji);
+    if (JOYERR_NOERROR != mmr)
+      throw std::runtime_error("Cannot get joystick info");
+    static decltype(&JOYINFOEX::dwXpos) const members[] = { &JOYINFOEX::dwXpos, &JOYINFOEX::dwYpos, &JOYINFOEX::dwZpos, &JOYINFOEX::dwRpos, &JOYINFOEX::dwUpos, &JOYINFOEX::dwVpos };
+    for (int ai = AxisID::x; ai < AxisID::num_axes; ++ai)
+    {
+      auto const & l = this->limits_[ai];
+      this->axes_[ai] = lerp<DWORD, float>(ji.*(members[ai]), l.min, l.max, -1.0, 1.0);
+    }
+  }
+
+  Joystick(UINT joyID) : joyID_(joyID)
+  {
+    memset(&this->axes_, 0, sizeof(this->axes_));
+
+    JOYCAPS jc;
+    auto const sjc = sizeof(jc);
+    memset(&jc, 0, sjc);
+    auto mmr = joyGetDevCaps(this->joyID_, &jc, sjc);
+    if (JOYERR_NOERROR != mmr)
+      throw std::runtime_error("Cannot get joystick caps");
+    this->limits_[AxisID::x].min = jc.wXmin;
+    this->limits_[AxisID::x].max = jc.wXmax;
+    this->limits_[AxisID::y].min = jc.wYmin;
+    this->limits_[AxisID::y].max = jc.wYmax;
+    this->limits_[AxisID::z].min = jc.wZmin;
+    this->limits_[AxisID::z].max = jc.wZmax;
+    this->limits_[AxisID::rx].min = jc.wRmin;
+    this->limits_[AxisID::rx].max = jc.wRmax;
+    this->limits_[AxisID::ry].min = jc.wUmin;
+    this->limits_[AxisID::ry].max = jc.wUmax;
+    this->limits_[AxisID::rz].min = jc.wVmin;
+    this->limits_[AxisID::rz].max = jc.wVmax;
+  }
+
+private:
+  UINT joyID_;
+  struct Limits { UINT min; UINT max; } limits_[AxisID::num_axes];
+  float axes_[AxisID::num_axes];
+};
+
+Joystick * g_pj = nullptr;
+
 void initialize()
 {
   UINT numJoysticks = joyGetNumDevs();
@@ -119,6 +191,11 @@ void initialize()
         log_message("Joystick ", joyID, " JoyCaps: ", desc);
         desc = describe_joyinfoex(ji);
         log_message("Joystick ", joyID, " JoyInfoEx: ", desc);
+        if (strcmp("head", jc.szPname) == 0)
+        {
+          log_message("Using joystick ", joyID);
+          g_pj = new Joystick(joyID);
+        }
       }
       else
       {
@@ -155,9 +232,42 @@ void set_trackir_data(void *data, float yaw, float pitch, float roll, float tx, 
   tir->tx = -tx * 64.0f;
   tir->ty = ty * 64.0f;
   tir->tz = tz * 64.0f;
-  //TODO What about other members of tir (checksum, frame)?
+  //TODO What about other members of tir (checksum)?
 }
 
+struct Pose
+{
+  float yaw, pitch, roll, x, y, z;
+  Pose() =default;
+  ~Pose() =default;
+};
+
+Pose make_pose(Joystick const & j)
+{
+  Pose pose;
+  pose.yaw = lerp(j.get_axis_value(AxisID::rx), -1.0f, 1.0f, -180.0f, 180.0f);
+  pose.pitch = lerp(j.get_axis_value(AxisID::ry), -1.0f, 1.0f, -90.0f, 90.0f);
+  pose.roll = lerp(j.get_axis_value(AxisID::rz), -1.0f, 1.0f, -180.0f, 180.0f);
+  pose.x = lerp(j.get_axis_value(AxisID::x), -1.0f, 1.0f, -1.0f, 1.0f);
+  pose.y = lerp(j.get_axis_value(AxisID::y), -1.0f, 1.0f, -1.0f, 1.0f);
+  pose.z = lerp(j.get_axis_value(AxisID::z), -1.0f, 1.0f, -1.0f, 1.0f);
+  return pose;
+}
+
+void handle(void* data)
+{
+  if (nullptr == g_pj)
+    return;
+  g_pj->update();
+  std::stringstream ss;
+  for (int ai = AxisID::x; ai < AxisID::num_axes; ++ai)
+  {
+    ss << g_pj->get_axis_value(ai) << " ";
+  }
+  log_message("Joystick axes: ", ss.str());
+  auto const pose = make_pose(*g_pj);
+  set_trackir_data(data, pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
+}
 
 /* Exported Dll functions. */
 int __stdcall NP_GetSignature(struct sig_data *signature)
@@ -225,9 +335,7 @@ int __stdcall NP_GetData(void *data)
 
   memset(data, 0, sizeof(tir_data));
 
-  //TODO Read data from joystick axes
-  float yaw=10.0f, pitch=20.0f, roll=30.0f, tx=1.0f, ty=2.0f, tz=3.0f;
-  set_trackir_data(data, yaw, pitch, roll, tx, ty, tz);
+  handle(data);
 
   return 0;
 }
