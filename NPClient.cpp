@@ -16,24 +16,31 @@ std::string get_log_path()
   return "NPClient.log";
 }
 
-std::fstream get_log_stream()
+std::fstream& get_log_stream()
 {
-  return std::fstream(get_log_path(), std::ios::app);
+  static auto stream = std::fstream(get_log_path(), std::ios::out | std::ios::trunc);
+  return stream;
 }
 
-template <typename T>
-void log_binary(const T& t)
+template <typename S, typename T>
+void log_print(S& s, const T& t)
 {
-  auto stream = std::fstream(get_log_path(), std::ios::binary | std::ios::app);
-
-  stream << std::endl << "binary:" << t << std::endl;
+  s << t;
 }
 
-template <typename T>
-void log_message(const T& t)
+template <typename S, typename T, typename... R>
+void log_print(S& s, const T& t, const R&... r)
 {
-  auto stream = get_log_stream();
-  stream << t << std::endl;
+  s << t;
+  log_print(s, r...);
+}
+
+template <typename... T>
+void log_message(const T&... t)
+{
+  auto & stream = get_log_stream();
+  log_print(stream, t...);
+  stream << std::endl;
 }
 
 template <typename T, typename K>
@@ -81,8 +88,6 @@ int __stdcall NP_GetSignature(struct sig_data *signature)
   memset(signature, 0, sizeof(sig_data));
 
   trackir::get_signature((char*)signature);
-
-  log_binary(std::string((char*)signature, sizeof(sig_data)));
 
   return 0;
 }
