@@ -6,6 +6,63 @@
 #include <cstring> //memset
 
 
+
+/* TrackIR */
+namespace trackir
+{
+  void get_signature(char* signature)
+  {
+    //TODO Fill signature
+  }
+}
+
+void set_trackir_data(void *data, float yaw, float pitch, float roll, float tx, float ty, float tz)
+{
+  static unsigned short frame;
+
+  tir_data *tir = (tir_data*)data;
+
+  tir->frame = frame++;
+  tir->yaw = -(yaw / 180.0f) * 16384.0f;
+  tir->pitch = -(pitch / 180.0f) * 16384.0f;
+  tir->roll = -(roll / 180.0f) * 16384.0f;
+
+  tir->tx = -tx * 64.0f;
+  tir->ty = ty * 64.0f;
+  tir->tz = tz * 64.0f;
+  //TODO What about other members of tir (checksum)?
+}
+
+/* Pose */
+struct Pose
+{
+  float yaw, pitch, roll, x, y, z;
+  Pose() =default;
+  Pose(float yaw, float pitch, float roll, float x, float y, float z)
+    : yaw(yaw), pitch(pitch), roll(roll), x(x), y(y), z(z)
+  {}
+  ~Pose() =default;
+};
+
+std::ostream & operator<<(std::ostream & os, Pose const & pose)
+{
+  return os << "yaw: " << pose.yaw << "; pitch: " << pose.pitch << "; roll: "<< pose.roll
+    << "; x: " << pose.x << "; y: " << pose.y << "; z: " << pose.z;
+}
+
+Pose make_pose(Joystick const & j)
+{
+  Pose pose;
+  pose.yaw = lerp(j.get_axis_value(AxisID::rx), -1.0f, 1.0f, -180.0f, 180.0f);
+  pose.pitch = lerp(j.get_axis_value(AxisID::ry), -1.0f, 1.0f, -180.0f, 180.0f);
+  pose.roll = lerp(j.get_axis_value(AxisID::rz), -1.0f, 1.0f, -180.0f, 180.0f);
+  pose.x = lerp(j.get_axis_value(AxisID::x), -1.0f, 1.0f, -1.0f, 1.0f);
+  pose.y = lerp(j.get_axis_value(AxisID::y), -1.0f, 1.0f, -1.0f, 1.0f);
+  pose.z = lerp(j.get_axis_value(AxisID::z), -1.0f, 1.0f, -1.0f, 1.0f);
+  return pose;
+}
+
+/* Worker functions */
 WinApiJoystick * g_pj = nullptr;
 
 void initialize()
@@ -48,57 +105,6 @@ void initialize()
     else
       log_message("Error accessing joystick: ", joyID, "; reason: ", mmr);
   }
-}
-
-/* TrackIR */
-namespace trackir
-{
-  void get_signature(char* signature)
-  {
-    //TODO Fill signature
-  }
-}
-
-void set_trackir_data(void *data, float yaw, float pitch, float roll, float tx, float ty, float tz)
-{
-  static unsigned short frame;
-
-  tir_data *tir = (tir_data*)data;
-
-  tir->frame = frame++;
-  tir->yaw = -(yaw / 180.0f) * 16384.0f;
-  tir->pitch = -(pitch / 180.0f) * 16384.0f;
-  tir->roll = -(roll / 180.0f) * 16384.0f;
-
-  tir->tx = -tx * 64.0f;
-  tir->ty = ty * 64.0f;
-  tir->tz = tz * 64.0f;
-  //TODO What about other members of tir (checksum)?
-}
-
-struct Pose
-{
-  float yaw, pitch, roll, x, y, z;
-  Pose() =default;
-  ~Pose() =default;
-};
-
-Pose make_pose(Joystick const & j)
-{
-  Pose pose;
-  pose.yaw = lerp(j.get_axis_value(AxisID::rx), -1.0f, 1.0f, -180.0f, 180.0f);
-  pose.pitch = lerp(j.get_axis_value(AxisID::ry), -1.0f, 1.0f, -180.0f, 180.0f);
-  pose.roll = lerp(j.get_axis_value(AxisID::rz), -1.0f, 1.0f, -180.0f, 180.0f);
-  pose.x = lerp(j.get_axis_value(AxisID::x), -1.0f, 1.0f, -1.0f, 1.0f);
-  pose.y = lerp(j.get_axis_value(AxisID::y), -1.0f, 1.0f, -1.0f, 1.0f);
-  pose.z = lerp(j.get_axis_value(AxisID::z), -1.0f, 1.0f, -1.0f, 1.0f);
-  return pose;
-}
-
-std::ostream & operator<<(std::ostream & os, Pose const & pose)
-{
-  return os << "yaw: " << pose.yaw << "; pitch: " << pose.pitch << "; roll: "<< pose.roll
-    << "; x: " << pose.x << "; y: " << pose.y << "; z: " << pose.z;
 }
 
 void handle(void* data)
