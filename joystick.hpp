@@ -2,6 +2,7 @@
 #define JOYSTICK_HPP
 
 #include <string>
+#include <memory> //shared ptr
 
 #include <windows.h> //joystick API
 
@@ -48,6 +49,26 @@ private:
   UINT joyID_;
   std::pair<UINT, UINT> nativeLimits_[static_cast<int>(NativeAxisID::num_axes)];
   float axes_[static_cast<int>(AxisID::num_axes)];
+};
+
+class Axis
+{
+public:
+  virtual float get_value() const =0;
+
+  virtual ~Axis() =default;
+};
+
+class JoystickAxis : public Axis
+{
+public:
+  virtual float get_value() const;
+
+  JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID axisID);
+
+private:
+  std::shared_ptr<Joystick> spJoystick_;
+  AxisID axisID_;
 };
 
 #endif

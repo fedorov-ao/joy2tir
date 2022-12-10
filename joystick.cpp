@@ -142,3 +142,13 @@ NativeAxisID WinApiJoystick::w2n_axis_(AxisID ai)
       return d.nai;
   return NativeAxisID::num_axes;
 }
+
+float JoystickAxis::get_value() const
+{
+  return this->spJoystick_->get_axis_value(this->axisID_);
+}
+
+JoystickAxis::JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID axisID)
+  : spJoystick_(spJoystick), axisID_(axisID)
+{
+}
