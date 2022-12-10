@@ -83,12 +83,12 @@ std::string describe_joyinfoex(JOYINFOEX& ji)
   return ss.str();
 }
 
-float Joystick::get_axis_value(AxisID axisID) const
+float WinApiJoystick::get_axis_value(AxisID axisID) const
 {
   return this->axes_[static_cast<int>(axisID)];
 }
 
-void Joystick::update()
+void WinApiJoystick::update()
 {
   JOYINFOEX ji;
   auto const sji = sizeof(ji);
@@ -109,7 +109,7 @@ void Joystick::update()
   }
 }
 
-Joystick::Joystick(UINT joyID) : joyID_(joyID)
+WinApiJoystick::WinApiJoystick(UINT joyID) : joyID_(joyID)
 {
   memset(&this->axes_, 0, sizeof(this->axes_));
 
@@ -126,7 +126,7 @@ Joystick::Joystick(UINT joyID) : joyID_(joyID)
   }
 }
 
-NativeAxisID Joystick::w2n_axis_(AxisID ai)
+NativeAxisID WinApiJoystick::w2n_axis_(AxisID ai)
 {
   static struct D { AxisID ai; NativeAxisID nai; } mapping[] = 
   {

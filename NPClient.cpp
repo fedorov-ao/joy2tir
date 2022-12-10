@@ -6,7 +6,7 @@
 #include <cstring> //memset
 
 
-Joystick * g_pj = nullptr;
+WinApiJoystick * g_pj = nullptr;
 
 void initialize()
 {
@@ -35,7 +35,7 @@ void initialize()
         if (joyID == 1)
         {
           log_message("Using joystick ", joyID);
-          g_pj = new Joystick(joyID);
+          g_pj = new WinApiJoystick(joyID);
         }
       }
       else

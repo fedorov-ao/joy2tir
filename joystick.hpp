@@ -29,10 +29,18 @@ std::string describe_joyinfoex(JOYINFOEX& ji);
 class Joystick
 {
 public:
-  float get_axis_value(AxisID axisID) const;
+  virtual float get_axis_value(AxisID axisID) const =0;
+
+  virtual ~Joystick() =default;
+};
+
+class WinApiJoystick : public Joystick
+{
+public:
+  virtual float get_axis_value(AxisID axisID) const override;
   void update();
 
-  Joystick(UINT joyID);
+  WinApiJoystick(UINT joyID);
 
 private:
   static NativeAxisID w2n_axis_(AxisID ai);
