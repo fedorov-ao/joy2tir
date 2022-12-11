@@ -16,8 +16,8 @@ T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
 }
 
 /* Joysticks */
-enum class NativeAxisID { x = 0, first_axis = x, y = 1, z = 2, r = 3, u = 4, v = 5, num_axes = 6 };
-enum class AxisID {  x = 0, first_axis = x, y = 1, z = 2, rx = 3, ry = 4, rz = 5, num_axes = 6 };
+enum class NativeAxisID { x = 0, first = x, y, z, r, u, v, num };
+enum class AxisID {  x = 0, first = x, y, z, rx, ry, rz, num };
 
 std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID id);
 
@@ -35,11 +35,19 @@ public:
   virtual ~Joystick() =default;
 };
 
-class WinApiJoystick : public Joystick
+class Updated
+{
+public:
+  virtual void update() =0;
+
+  virtual ~Updated() =default;
+};
+
+class WinApiJoystick : public Joystick, public Updated
 {
 public:
   virtual float get_axis_value(AxisID axisID) const override;
-  void update();
+  virtual void update() override;
 
   WinApiJoystick(UINT joyID);
 
@@ -47,8 +55,8 @@ private:
   static NativeAxisID w2n_axis_(AxisID ai);
 
   UINT joyID_;
-  std::pair<UINT, UINT> nativeLimits_[static_cast<int>(NativeAxisID::num_axes)];
-  float axes_[static_cast<int>(AxisID::num_axes)];
+  std::pair<UINT, UINT> nativeLimits_[static_cast<int>(NativeAxisID::num)];
+  float axes_[static_cast<int>(AxisID::num)];
 };
 
 class Axis

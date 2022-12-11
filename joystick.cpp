@@ -98,11 +98,11 @@ void WinApiJoystick::update()
   auto mmr = joyGetPosEx(this->joyID_, &ji);
   if (JOYERR_NOERROR != mmr)
     throw std::runtime_error("Cannot get joystick info");
-  for (auto i = static_cast<int>(AxisID::first_axis); i < static_cast<int>(AxisID::num_axes); ++i)
+  for (auto i = static_cast<int>(AxisID::first); i < static_cast<int>(AxisID::num); ++i)
   {
     auto const ai = static_cast<AxisID>(i);
     auto const nai = this->w2n_axis_(ai);
-    if (NativeAxisID::num_axes == nai)
+    if (NativeAxisID::num == nai)
       throw std::logic_error("Bad axis id");
     auto const & l = this->nativeLimits_[static_cast<int>(nai)];
     this->axes_[i] = lerp<DWORD, float>(get_pos_from_joyinfoex(ji, nai), l.first, l.second, -1.0f, 1.0f);
@@ -119,7 +119,7 @@ WinApiJoystick::WinApiJoystick(UINT joyID) : joyID_(joyID)
   auto mmr = joyGetDevCaps(this->joyID_, &jc, sjc);
   if (JOYERR_NOERROR != mmr)
     throw std::runtime_error("Cannot get joystick caps");
-  for (auto i = static_cast<int>(NativeAxisID::first_axis); i < static_cast<int>(NativeAxisID::num_axes); ++i)
+  for (auto i = static_cast<int>(NativeAxisID::first); i < static_cast<int>(NativeAxisID::num); ++i)
   {
     auto const nai = static_cast<NativeAxisID>(i);
     this->nativeLimits_[i] = get_limits_from_joycaps(jc, nai);
@@ -140,7 +140,7 @@ NativeAxisID WinApiJoystick::w2n_axis_(AxisID ai)
   for (auto const & d : mapping)
     if (d.ai == ai)
       return d.nai;
-  return NativeAxisID::num_axes;
+  return NativeAxisID::num;
 }
 
 float JoystickAxis::get_value() const
