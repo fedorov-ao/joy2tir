@@ -297,6 +297,10 @@ void initialize()
   std::ifstream configStream (configName);
   auto config = nlohmann::json::parse(configStream);
 
+  auto const printJoystcks = "printJoystcks";
+  if (config.contains(printJoystcks) && config.at(printJoystcks).get<bool>())
+    list_winapi_joysticks();
+
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
   auto & mapping = config.at("mapping");
   for (auto & e : mapping)
