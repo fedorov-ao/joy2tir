@@ -1,6 +1,7 @@
 #include "NPClient.hpp"
 #include "logging.hpp"
 #include "joystick.hpp"
+#include "nlohmann/json.hpp"
 
 #include <vector>
 #include <map>
