@@ -284,10 +284,10 @@ void initialize()
   {
     {PoseMemberID::yaw, anglesJoyID, AxisID::x, 180.0f},
     {PoseMemberID::pitch, anglesJoyID, AxisID::y, 180.0f},
-    {PoseMemberID::roll, anglesJoyID, AxisID::z, 90.0f},
-    {PoseMemberID::x, posJoyID, AxisID::x, 100.0f},
-    {PoseMemberID::y, posJoyID, AxisID::y, 100.0f},
-    {PoseMemberID::z, posJoyID, AxisID::z, 100.0f}
+    {PoseMemberID::roll, anglesJoyID, AxisID::z, 180.0f},
+    {PoseMemberID::x, posJoyID, AxisID::x, 256.0f},
+    {PoseMemberID::y, posJoyID, AxisID::y, 256.0f},
+    {PoseMemberID::z, posJoyID, AxisID::z, 256.0f}
   };
 
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
