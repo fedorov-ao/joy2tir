@@ -273,41 +273,35 @@ std::shared_ptr<PoseFactory> g_poseFactory;
 
 void initialize()
 {
-  static UINT const posJoyID = 2;
-  static UINT const anglesJoyID = 3;
-  static struct Mapping
-  {
-    PoseMemberID poseMemberID;
-    UINT joyID;
-    AxisID axisID;
-    float factor;
-  } const mappings[] =
-  {
-    {PoseMemberID::yaw, anglesJoyID, AxisID::x, 180.0f},
-    {PoseMemberID::pitch, anglesJoyID, AxisID::y, 180.0f},
-    {PoseMemberID::roll, anglesJoyID, AxisID::z, 180.0f},
-    {PoseMemberID::x, posJoyID, AxisID::x, 256.0f},
-    {PoseMemberID::y, posJoyID, AxisID::y, 256.0f},
-    {PoseMemberID::z, posJoyID, AxisID::z, 256.0f}
-  };
+  static char const * configName = "NPClient.json";
+  std::ifstream configStream (configName);
+  auto config = nlohmann::json::parse(configStream);
 
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
-  for (auto const & mapping : mappings)
+  auto & mapping = config.at("mapping");
+  for (auto & e : mapping)
   {
+    auto poseMemberID = static_cast<PoseMemberID>(e.at("tirAxis").get<int>());
+    auto joyID = e.at("joystick").get<UINT>();
+    auto axisID = static_cast<AxisID>(e.at("joyAxis").get<int>());
+    auto factor = 1.0f;
+    if (e.contains("factor"))
+      factor = e.at("factor").get<float>();
+
     std::shared_ptr<Joystick> spJoystick;
-    auto itJoystick = g_joysticks.find(mapping.joyID);
+    auto itJoystick = g_joysticks.find(joyID);
     if (g_joysticks.end() == itJoystick)
     {
-      auto spj = std::make_shared<WinApiJoystick>(mapping.joyID);
-      g_joysticks[mapping.joyID] = spj;
+      auto spj = std::make_shared<WinApiJoystick>(joyID);
+      g_joysticks[joyID] = spj;
       g_updated.push_back(spj);
       spJoystick = spj;
     }
     else
       spJoystick = itJoystick->second;
 
-    auto spAxis = std::make_shared<JoystickAxis>(spJoystick, mapping.axisID);
-    spPoseFactory->set_mapping(mapping.poseMemberID, spAxis, mapping.factor);
+    auto spAxis = std::make_shared<JoystickAxis>(spJoystick, axisID);
+    spPoseFactory->set_mapping(poseMemberID, spAxis, factor);
   }
   g_poseFactory = spPoseFactory;
 }
