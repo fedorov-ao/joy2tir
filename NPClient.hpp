@@ -13,7 +13,9 @@ struct tir_data {
   unsigned int checksum;
   float roll, pitch, yaw;
   float tx, ty, tz;
-  float padding[9];
+  float rawx, rawy, rawz;
+  float deltax, deltay, deltaz;
+  float smoothx, smoothy, smoothz;
 };
 
 extern "C" int __declspec(dllexport) __stdcall NP_GetSignature(struct sig_data *sig);
