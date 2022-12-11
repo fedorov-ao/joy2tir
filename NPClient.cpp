@@ -190,16 +190,18 @@ public:
 class AxisPoseFactory : public PoseFactory
 {
 public:
+  using limits_t = std::pair<float, float>;
+
   virtual Pose make_pose() const;
 
-  void set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor);
+  void set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, limits_t const & limits);
   void set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis);
-  void set_factor(PoseMemberID poseMemberID, float factor);
+  void set_limits(PoseMemberID poseMemberID, limits_t const & limits);
 
   AxisPoseFactory();
 
 private:
-  struct AxisData { std::shared_ptr<Axis> spAxis; float factor; } axes_[static_cast<int>(PoseMemberID::num)];
+  struct AxisData { std::shared_ptr<Axis> spAxis; limits_t limits; } axes_[static_cast<int>(PoseMemberID::num)];
 };
 
 Pose AxisPoseFactory::make_pose() const
@@ -209,7 +211,7 @@ Pose AxisPoseFactory::make_pose() const
   for (int i = static_cast<int>(PoseMemberID::first); i < num; ++i)
   {
     auto const & d = this->axes_[i];
-    v[i] = d.spAxis ? d.spAxis->get_value()*d.factor : 0.0f;
+    v[i] = d.spAxis ? lerp(d.spAxis->get_value(), -1.0f, 1.0f, d.limits.first, d.limits.second) : 0.0f;
   }
   return Pose (
     v[static_cast<int>(PoseMemberID::yaw)],
@@ -221,11 +223,11 @@ Pose AxisPoseFactory::make_pose() const
   );
 }
 
-void AxisPoseFactory::set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor)
+void AxisPoseFactory::set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, AxisPoseFactory::limits_t const & limits)
 {
   auto & d = this->axes_[static_cast<int>(poseMemberID)];
   d.spAxis = spAxis;
-  d.factor = factor;
+  d.limits = limits;
 }
 
 void AxisPoseFactory::set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis)
@@ -234,10 +236,10 @@ void AxisPoseFactory::set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> 
   d.spAxis = spAxis;
 }
 
-void AxisPoseFactory::set_factor(PoseMemberID poseMemberID, float factor)
+void AxisPoseFactory::set_limits(PoseMemberID poseMemberID, AxisPoseFactory::limits_t const & limits)
 {
   auto & d = this->axes_[static_cast<int>(poseMemberID)];
-  d.factor = factor;
+  d.limits = limits;
 }
 
 AxisPoseFactory::AxisPoseFactory()
@@ -245,7 +247,7 @@ AxisPoseFactory::AxisPoseFactory()
   for (auto & d : this->axes_)
   {
     d.spAxis = nullptr;
-    d.factor = 1.0;
+    d.limits = limits_t(-1.0f, 1.0f);
   }
 }
 
@@ -308,9 +310,13 @@ void initialize()
     auto poseMemberID = cstr_to_pose_member_id(e.at("tirAxis").get<std::string>().data());
     auto joyID = e.at("joystick").get<UINT>();
     auto axisID = cstr_to_axis_id(e.at("joyAxis").get<std::string>().data());
-    auto factor = 1.0f;
-    if (e.contains("factor"))
-      factor = e.at("factor").get<float>();
+    auto limits = AxisPoseFactory::limits_t(-1.0f, 1.0f);
+    if (e.contains("limits"))
+    {
+      auto const & l = e.at("limits");
+      limits.first = l[0].get<float>();
+      limits.second = l[1].get<float>();
+    }
 
     std::shared_ptr<Joystick> spJoystick;
     auto itJoystick = g_joysticks.find(joyID);
@@ -325,7 +331,7 @@ void initialize()
       spJoystick = itJoystick->second;
 
     auto spAxis = std::make_shared<JoystickAxis>(spJoystick, axisID);
-    spPoseFactory->set_mapping(poseMemberID, spAxis, factor);
+    spPoseFactory->set_mapping(poseMemberID, spAxis, limits);
   }
   g_poseFactory = spPoseFactory;
 }
