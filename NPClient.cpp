@@ -301,9 +301,9 @@ void initialize()
   auto & mapping = config.at("mapping");
   for (auto & e : mapping)
   {
-    auto poseMemberID = static_cast<PoseMemberID>(e.at("tirAxis").get<int>());
+    auto poseMemberID = cstr_to_pose_member_id(e.at("tirAxis").get<std::string>().data());
     auto joyID = e.at("joystick").get<UINT>();
-    auto axisID = static_cast<AxisID>(e.at("joyAxis").get<int>());
+    auto axisID = cstr_to_axis_id(e.at("joyAxis").get<std::string>().data());
     auto factor = 1.0f;
     if (e.contains("factor"))
       factor = e.at("factor").get<float>();
