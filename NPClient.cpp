@@ -105,7 +105,7 @@ Pose make_pose(Joystick const & j)
   Pose pose;
   pose.yaw = lerp(j.get_axis_value(AxisID::rx), -1.0f, 1.0f, -180.0f, 180.0f);
   pose.pitch = lerp(j.get_axis_value(AxisID::ry), -1.0f, 1.0f, -180.0f, 180.0f);
-  pose.roll = lerp(j.get_axis_value(AxisID::rz), -1.0f, 1.0f, -180.0f, 180.0f);
+  pose.roll = lerp(j.get_axis_value(AxisID::rz), -1.0f, 1.0f, -90.0f, 90.0f);
   pose.x = lerp(j.get_axis_value(AxisID::x), -1.0f, 1.0f, -1.0f, 1.0f);
   pose.y = lerp(j.get_axis_value(AxisID::y), -1.0f, 1.0f, -1.0f, 1.0f);
   pose.z = lerp(j.get_axis_value(AxisID::z), -1.0f, 1.0f, -1.0f, 1.0f);
@@ -166,12 +166,12 @@ void initialize()
     float factor;
   } const mappings[] =
   {
-    {PoseMemberID::yaw, anglesJoyID, AxisID::x, -180.0f},
+    {PoseMemberID::yaw, anglesJoyID, AxisID::x, 180.0f},
     {PoseMemberID::pitch, anglesJoyID, AxisID::y, 180.0f},
-    {PoseMemberID::roll, anglesJoyID, AxisID::z, 180.0f},
-    {PoseMemberID::x, posJoyID, AxisID::x, 1.0f},
-    {PoseMemberID::y, posJoyID, AxisID::y, 1.0f},
-    {PoseMemberID::z, posJoyID, AxisID::z, 1.0f}
+    {PoseMemberID::roll, anglesJoyID, AxisID::z, 90.0f},
+    {PoseMemberID::x, posJoyID, AxisID::x, 100.0f},
+    {PoseMemberID::y, posJoyID, AxisID::y, 100.0f},
+    {PoseMemberID::z, posJoyID, AxisID::z, 100.0f}
   };
 
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
