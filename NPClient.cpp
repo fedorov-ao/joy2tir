@@ -14,6 +14,114 @@ void get_signature(char* signature)
   //TODO Fill signature
 }
 
+/*
+tir2joy-master/NPClient.h:55
+// DATA FIELDS
+#define NPControl   8 // indicates a control data field
+            // the second parameter of a message bearing control data information contains a packed data format.
+            // The High byte indicates what the data is, and the Low byte contains the actual data
+// roll, pitch, yaw
+#define NPRoll    1 // +/- 16383 (representing +/- 180) [data = input - 16383]
+#define NPPitch   2 // +/- 16383 (representing +/- 180) [data = input - 16383]
+#define NPYaw   4 // +/- 16383 (representing +/- 180) [data = input - 16383]
+
+// x, y, z - remaining 6dof coordinates
+#define NPX     16  // +/- 16383 [data = input - 16383]
+#define NPY     32  // +/- 16383 [data = input - 16383]
+#define NPZ     64  // +/- 16383 [data = input - 16383]
+
+// raw object position from imager
+#define NPRawX    128 // 0..25600 (actual value is multiplied x 100 to pass two decimal places of precision)  [data = input / 100]
+#define NPRawY    256  // 0..25600 (actual value is multiplied x 100 to pass two decimal places of precision)  [data = input / 100]
+#define NPRawZ    512  // 0..25600 (actual value is multiplied x 100 to pass two decimal places of precision)  [data = input / 100]
+
+// x, y, z deltas from raw imager position
+#define NPDeltaX    1024 // +/- 2560 (actual value is multiplied x 10 to pass two decimal places of precision)  [data = (input / 10) - 256]
+#define NPDeltaY    2048 // +/- 2560 (actual value is multiplied x 10 to pass two decimal places of precision)  [data = (input / 10) - 256]
+#define NPDeltaZ    4096 // +/- 2560 (actual value is multiplied x 10 to pass two decimal places of precision)  [data = (input / 10) - 256]
+
+// raw object position from imager
+#define NPSmoothX   8192    // 0..32766 (actual value is multiplied x 10 to pass one decimal place of precision) [data = input / 10]
+#define NPSmoothY   16384  // 0..32766 (actual value is multiplied x 10 to pass one decimal place of precision) [data = input / 10]
+#define NPSmoothZ   32768  // 0..32766 (actual value is multiplied x 10 to pass one decimal place of precision) [data = input / 10]
+
+
+//////////////////
+/// Typedefs /////////////////////////////////////////////////////////////////////
+/////////////////
+
+// NPESULT values are returned from the Game Client API functions.
+//
+typedef enum tagNPResult
+{
+  NP_OK = 0,
+  NP_ERR_DEVICE_NOT_PRESENT,
+  NP_ERR_UNSUPPORTED_OS,
+  NP_ERR_INVALID_ARG,
+  NP_ERR_DLL_NOT_FOUND,
+  NP_ERR_NO_DATA,
+  NP_ERR_INTERNAL_DATA
+
+} NPRESULT;
+
+typedef struct tagTrackIRSignature
+{
+  char DllSignature[200];
+  char AppSignature[200];
+
+} SIGNATUREDATA, *LPTRACKIRSIGNATURE;
+
+typedef struct tagTrackIRData
+{
+  unsigned short wNPStatus;
+  unsigned short wPFrameSignature;
+  unsigned long  dwNPIOData;
+
+  float fNPRoll;
+  float fNPPitch;
+  float fNPYaw;
+  float fNPX;
+  float fNPY;
+  float fNPZ;
+  float fNPRawX;
+  float fNPRawY;
+  float fNPRawZ;
+  float fNPDeltaX;
+  float fNPDeltaY;
+  float fNPDeltaZ;
+  float fNPSmoothX;
+  float fNPSmoothY;
+  float fNPSmoothZ;
+
+} TRACKIRDATA, *LPTRACKIRDATA;
+
+linuxtrack-wine-0.1/src/ltrnp.c:155
+int __stdcall NPCLIENT_NP_GetData(void *data)
+{
+  static short frame;
+  unsigned int counter;
+  struct tir_data *tir = data;
+
+  memset(tir, 0, sizeof *tir);
+
+  if(ltr_get_camera_update(&tir->yaw, &tir->pitch, &tir->roll,
+  &tir->tx, &tir->ty, &tir->tz, &counter) < 0) {
+  logmsg("ltr_get_camera_update failed!\n");
+  }
+  tir->frame = frame++;
+
+  tir->yaw = -(tir->yaw / 180.0f) * 16384.0f;
+  tir->pitch = -(tir->pitch / 180.0f) * 16384.0f;
+  tir->roll = -(tir->roll / 180.0f) * 16384.0f;
+
+  tir->tx = -tir->tx * 64.0f;
+  tir->ty = tir->ty * 64.0f;
+  tir->tz = tir->tz * 64.0f;
+
+  return 0;
+}
+*/
+
 void set_trackir_data(tir_data* tir, float yaw, float pitch, float roll, float tx, float ty, float tz)
 {
   static unsigned short frame = 0;
