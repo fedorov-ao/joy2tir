@@ -14,12 +14,13 @@ void get_signature(char* signature)
   //TODO Fill signature
 }
 
-void set_trackir_data(void *data, float yaw, float pitch, float roll, float tx, float ty, float tz)
+void set_trackir_data(tir_data* tir, float yaw, float pitch, float roll, float tx, float ty, float tz)
 {
-  static unsigned short frame;
+  static unsigned short frame = 0;
 
-  tir_data *tir = (tir_data*)data;
-
+  memset(tir, 0, sizeof(*tir));
+  //TODO What about other members of tir (checksum)?
+  tir->status = 0;
   tir->frame = frame++;
   tir->yaw = -(yaw / 180.0f) * 16384.0f;
   tir->pitch = -(pitch / 180.0f) * 16384.0f;
@@ -28,7 +29,6 @@ void set_trackir_data(void *data, float yaw, float pitch, float roll, float tx, 
   tir->tx = -tx * 64.0f;
   tir->ty = ty * 64.0f;
   tir->tz = tz * 64.0f;
-  //TODO What about other members of tir (checksum)?
 }
 
 /* Pose */
@@ -201,8 +201,8 @@ void handle(void* data)
   {
     auto const pose = g_poseFactory->make_pose();
     //auto const pose = Pose(100.0f, 110.0f, 120.0f, 10.0f, 20.0f, 30.0f);
-    log_message("Pose: ", pose);
-    set_trackir_data(data, pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
+    //log_message("Pose: ", pose);
+    set_trackir_data(reinterpret_cast<tir_data*>(data), pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
   }
 }
 
