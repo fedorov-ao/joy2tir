@@ -171,9 +171,11 @@ class AxisPoseFactory : public PoseFactory
 public:
   virtual Pose make_pose() const;
 
-  void set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor);
+  void set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor);
+  void set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis);
+  void set_factor(PoseMemberID poseMemberID, float factor);
 
-  AxisPoseFactory() =default;
+  AxisPoseFactory();
 
 private:
   struct AxisData { std::shared_ptr<Axis> spAxis; float factor; } axes_[static_cast<int>(PoseMemberID::num)];
@@ -198,23 +200,32 @@ Pose AxisPoseFactory::make_pose() const
   );
 }
 
-void AxisPoseFactory::set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor)
+void AxisPoseFactory::set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor)
 {
   auto & d = this->axes_[static_cast<int>(poseMemberID)];
   d.spAxis = spAxis;
   d.factor = factor;
 }
 
-Pose make_pose(Joystick const & j)
+void AxisPoseFactory::set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis)
 {
-  Pose pose;
-  pose.yaw = lerp(j.get_axis_value(AxisID::rx), -1.0f, 1.0f, -180.0f, 180.0f);
-  pose.pitch = lerp(j.get_axis_value(AxisID::ry), -1.0f, 1.0f, -180.0f, 180.0f);
-  pose.roll = lerp(j.get_axis_value(AxisID::rz), -1.0f, 1.0f, -90.0f, 90.0f);
-  pose.x = lerp(j.get_axis_value(AxisID::x), -1.0f, 1.0f, -1.0f, 1.0f);
-  pose.y = lerp(j.get_axis_value(AxisID::y), -1.0f, 1.0f, -1.0f, 1.0f);
-  pose.z = lerp(j.get_axis_value(AxisID::z), -1.0f, 1.0f, -1.0f, 1.0f);
-  return pose;
+  auto & d = this->axes_[static_cast<int>(poseMemberID)];
+  d.spAxis = spAxis;
+}
+
+void AxisPoseFactory::set_factor(PoseMemberID poseMemberID, float factor)
+{
+  auto & d = this->axes_[static_cast<int>(poseMemberID)];
+  d.factor = factor;
+}
+
+AxisPoseFactory::AxisPoseFactory()
+{
+  for (auto & d : this->axes_)
+  {
+    d.spAxis = nullptr;
+    d.factor = 1.0;
+  }
 }
 
 /* Worker functions */
@@ -295,7 +306,7 @@ void initialize()
       spJoystick = itJoystick->second;
 
     auto spAxis = std::make_shared<JoystickAxis>(spJoystick, mapping.axisID);
-    spPoseFactory->set_axis(mapping.poseMemberID, spAxis, mapping.factor);
+    spPoseFactory->set_mapping(mapping.poseMemberID, spAxis, mapping.factor);
   }
   g_poseFactory = spPoseFactory;
 }
