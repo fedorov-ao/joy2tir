@@ -2,10 +2,11 @@
 #include "logging.hpp"
 #include "joystick.hpp"
 
+#include <vector>
+#include <map>
+
 #include <time.h>
 #include <cstring> //memset
-
-
 
 /* TrackIR */
 namespace trackir
@@ -34,6 +35,8 @@ void set_trackir_data(void *data, float yaw, float pitch, float roll, float tx, 
 }
 
 /* Pose */
+enum class PoseMemberID : int { yaw = 0, first = yaw, pitch, roll, x, y, z, num };
+
 struct Pose
 {
   float yaw, pitch, roll, x, y, z;
@@ -50,6 +53,53 @@ std::ostream & operator<<(std::ostream & os, Pose const & pose)
     << "; x: " << pose.x << "; y: " << pose.y << "; z: " << pose.z;
 }
 
+class PoseFactory
+{
+public:
+  virtual Pose make_pose() const =0;
+
+  virtual ~PoseFactory() =default;
+};
+
+class AxisPoseFactory : public PoseFactory
+{
+public:
+  virtual Pose make_pose() const;
+
+  void set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor);
+
+  AxisPoseFactory() =default;
+
+private:
+  struct AxisData { std::shared_ptr<Axis> spAxis; float factor; } axes_[static_cast<int>(PoseMemberID::num)];
+};
+
+Pose AxisPoseFactory::make_pose() const
+{
+  auto const num = static_cast<int>(PoseMemberID::num);
+  float v[num];
+  for (int i = static_cast<int>(PoseMemberID::first); i < num; ++i)
+  {
+    auto const & d = this->axes_[i];
+    v[i] = d.spAxis ? d.spAxis->get_value()*d.factor : 0.0f;
+  }
+  return Pose (
+    v[static_cast<int>(PoseMemberID::yaw)],
+    v[static_cast<int>(PoseMemberID::pitch)],
+    v[static_cast<int>(PoseMemberID::roll)],
+    v[static_cast<int>(PoseMemberID::x)],
+    v[static_cast<int>(PoseMemberID::y)],
+    v[static_cast<int>(PoseMemberID::z)]
+  );
+}
+
+void AxisPoseFactory::set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, float factor)
+{
+  auto & d = this->axes_[static_cast<int>(poseMemberID)];
+  d.spAxis = spAxis;
+  d.factor = factor;
+}
+
 Pose make_pose(Joystick const & j)
 {
   Pose pose;
@@ -63,9 +113,7 @@ Pose make_pose(Joystick const & j)
 }
 
 /* Worker functions */
-WinApiJoystick * g_pj = nullptr;
-
-void initialize()
+void list_winapi_joysticks()
 {
   UINT numJoysticks = joyGetNumDevs();
   log_message("Number of joystics: ", numJoysticks);
@@ -89,11 +137,6 @@ void initialize()
         log_message("Joystick ", joyID, " JoyCaps: ", desc);
         desc = describe_joyinfoex(ji);
         log_message("Joystick ", joyID, " JoyInfoEx: ", desc);
-        if (joyID == 1)
-        {
-          log_message("Using joystick ", joyID);
-          g_pj = new WinApiJoystick(joyID);
-        }
       }
       else
       {
@@ -107,22 +150,63 @@ void initialize()
   }
 }
 
+std::vector<std::shared_ptr<Updated> > g_updated;
+std::map<UINT, std::shared_ptr<Joystick> > g_joysticks;
+std::shared_ptr<PoseFactory> g_poseFactory;
+
+void initialize()
+{
+  static UINT const posJoyID = 2;
+  static UINT const anglesJoyID = 3;
+  static struct Mapping
+  {
+    PoseMemberID poseMemberID;
+    UINT joyID;
+    AxisID axisID;
+    float factor;
+  } const mappings[] =
+  {
+    {PoseMemberID::yaw, anglesJoyID, AxisID::x, -180.0f},
+    {PoseMemberID::pitch, anglesJoyID, AxisID::y, 180.0f},
+    {PoseMemberID::roll, anglesJoyID, AxisID::z, 180.0f},
+    {PoseMemberID::x, posJoyID, AxisID::x, 1.0f},
+    {PoseMemberID::y, posJoyID, AxisID::y, 1.0f},
+    {PoseMemberID::z, posJoyID, AxisID::z, 1.0f}
+  };
+
+  auto spPoseFactory = std::make_shared<AxisPoseFactory>();
+  for (auto const & mapping : mappings)
+  {
+    std::shared_ptr<Joystick> spJoystick;
+    auto itJoystick = g_joysticks.find(mapping.joyID);
+    if (g_joysticks.end() == itJoystick)
+    {
+      auto spj = std::make_shared<WinApiJoystick>(mapping.joyID);
+      g_joysticks[mapping.joyID] = spj;
+      g_updated.push_back(spj);
+      spJoystick = spj;
+    }
+    else
+      spJoystick = itJoystick->second;
+
+    auto spAxis = std::make_shared<JoystickAxis>(spJoystick, mapping.axisID);
+    spPoseFactory->set_axis(mapping.poseMemberID, spAxis, mapping.factor);
+  }
+  g_poseFactory = spPoseFactory;
+}
+
 void handle(void* data)
 {
-  if (nullptr == g_pj)
-    return;
-  g_pj->update();
-  auto const pose = make_pose(*g_pj);
-  log_message(
-    "x: ", g_pj->get_axis_value(AxisID::x),
-    "; y: ", g_pj->get_axis_value(AxisID::y),
-    "; z: ", g_pj->get_axis_value(AxisID::z),
-    "; rx: ", g_pj->get_axis_value(AxisID::rx),
-    "; ry: ", g_pj->get_axis_value(AxisID::ry),
-    "; rz: ", g_pj->get_axis_value(AxisID::rz)
-  );
-  log_message("Pose: ", pose);
-  set_trackir_data(data, pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
+  for (auto const & sp : g_updated)
+    sp->update();
+
+  if (g_poseFactory)
+  {
+    auto const pose = g_poseFactory->make_pose();
+    //auto const pose = Pose(100.0f, 110.0f, 120.0f, 10.0f, 20.0f, 30.0f);
+    log_message("Pose: ", pose);
+    set_trackir_data(data, pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
+  }
 }
 
 /* Exported Dll functions. */
