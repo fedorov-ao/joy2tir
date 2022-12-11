@@ -9,12 +9,9 @@
 #include <cstring> //memset
 
 /* TrackIR */
-namespace trackir
+void get_signature(char* signature)
 {
-  void get_signature(char* signature)
-  {
-    //TODO Fill signature
-  }
+  //TODO Fill signature
 }
 
 void set_trackir_data(void *data, float yaw, float pitch, float roll, float tx, float ty, float tz)
@@ -218,7 +215,7 @@ int __stdcall NP_GetSignature(struct sig_data *signature)
 
   memset(signature, 0, sizeof(sig_data));
 
-  trackir::get_signature((char*)signature);
+  get_signature((char*)signature);
 
   return 0;
 }
