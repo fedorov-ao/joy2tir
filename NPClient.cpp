@@ -143,6 +143,26 @@ void set_trackir_data(tir_data* tir, float yaw, float pitch, float roll, float t
 /* Pose */
 enum class PoseMemberID : int { yaw = 0, first = yaw, pitch, roll, x, y, z, num };
 
+char const * pose_member_id_to_cstr(PoseMemberID id)
+{
+  static char const * names[] = {"yaw", "pitch", "roll", "x", "y", "z", "num"};
+  auto const iid = static_cast<int>(id);
+  auto const ifirst = static_cast<int>(PoseMemberID::first);
+  auto const inum = static_cast<int>(PoseMemberID::num);
+  return (iid < ifirst || iid > inum) ? "unknown" : names[iid];
+}
+
+PoseMemberID cstr_to_pose_member_id(char const * name)
+{
+  static char const * names[] = {"yaw", "pitch", "roll", "x", "y", "z", "num"};
+  for (int i = 0; i < sizeof(names)/sizeof(names[0]); ++i)
+  {
+    if (strcmp(names[i], name) == 0)
+      return static_cast<PoseMemberID>(i);
+  }
+  return PoseMemberID::num;
+}
+
 struct Pose
 {
   float yaw, pitch, roll, x, y, z;

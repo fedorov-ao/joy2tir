@@ -19,6 +19,9 @@ T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
 enum class NativeAxisID { x = 0, first = x, y, z, r, u, v, num };
 enum class AxisID {  x = 0, first = x, y, z, rx, ry, rz, num };
 
+char const * axis_id_to_cstr(AxisID id);
+AxisID cstr_to_axis_id(char const * name);
+
 std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID id);
 
 DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, NativeAxisID id);

@@ -4,6 +4,26 @@
 #include <sstream>
 
 /* Joysticks */
+char const * axis_id_to_cstr(AxisID id)
+{
+  static char const * names[] = {"x", "y", "z", "rx", "ry", "rz", "num"};
+  auto const iid = static_cast<int>(id);
+  auto const ifirst = static_cast<int>(AxisID::first);
+  auto const inum = static_cast<int>(AxisID::num);
+  return (iid < ifirst || iid > inum) ? "unknown" : names[iid];
+}
+
+AxisID cstr_to_axis_id(char const * name)
+{
+  static char const * names[] = {"x", "y", "z", "rx", "ry", "rz", "num"};
+  for (int i = 0; i < sizeof(names)/sizeof(names[0]); ++i)
+  {
+    if (strcmp(names[i], name) == 0)
+      return static_cast<AxisID>(i);
+  }
+  return AxisID::num;
+}
+
 std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID id)
 {
   switch (id)
