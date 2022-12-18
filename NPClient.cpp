@@ -123,23 +123,6 @@ int __stdcall NPCLIENT_NP_GetData(void *data)
 }
 */
 
-void set_trackir_data(tir_data* tir, float yaw, float pitch, float roll, float tx, float ty, float tz)
-{
-  static unsigned short frame = 0;
-
-  memset(tir, 0, sizeof(*tir));
-  //TODO What about other members of tir (checksum)?
-  tir->status = 0;
-  tir->frame = frame++;
-  tir->yaw = -(yaw / 180.0f) * 16384.0f;
-  tir->pitch = -(pitch / 180.0f) * 16384.0f;
-  tir->roll = -(roll / 180.0f) * 16384.0f;
-
-  tir->tx = -tx * 64.0f;
-  tir->ty = ty * 64.0f;
-  tir->tz = tz * 64.0f;
-}
-
 /* Pose */
 enum class PoseMemberID : int { yaw = 0, first = yaw, pitch, roll, x, y, z, num };
 
@@ -251,6 +234,69 @@ AxisPoseFactory::AxisPoseFactory()
   }
 }
 
+/* tir_data setter */
+struct TIRData
+{
+  enum type {
+    NPControl = 8,
+    NPRoll = 1, NPPitch = 2, NPYaw = 4,
+    NPX = 16, NPY = 32, NPZ = 64,
+    NPRawX = 128, NPRawY = 256, NPRawZ = 512,
+    NPDeltaX = 1024, NPDeltaY = 2048, NPDeltaZ = 4096,
+    NPSmoothX = 8192, NPSmoothY = 16384, NPSmoothZ = 32768
+  };
+};
+
+class TIRDataSetter
+{
+public:
+  /* pose yaw, pitch, roll are +/- 180.0f degrees; pose x, y, z, are +/- 256.0f centimeters */
+  void set_trackir_data(tir_data* tir, Pose const & pose)
+  {
+    static unsigned short frame = 0;
+
+    memset(tir, 0, sizeof(*tir));
+    //TODO What about other members of tir (checksum)?
+    tir->status = 0;
+    tir->frame = frame++;
+    if (data_ & TIRData::NPYaw) tir->yaw = convert_angle_(-pose.yaw);
+    if (data_ & TIRData::NPPitch) tir->pitch = convert_angle_(-pose.pitch);
+    if (data_ & TIRData::NPRoll) tir->roll = convert_angle_(-pose.roll);
+
+    if (data_ & TIRData::NPX) tir->tx = convert_t_(-pose.x);
+    if (data_ & TIRData::NPY) tir->ty = convert_t_(pose.y);
+    if (data_ & TIRData::NPZ) tir->tz = convert_t_(pose.z);
+
+    if (data_ & TIRData::NPRawX) tir->rawx = convert_raw_(-pose.x);
+    if (data_ & TIRData::NPRawY) tir->rawy = convert_raw_(pose.y);
+    if (data_ & TIRData::NPRawZ) tir->rawz = convert_raw_(pose.z);
+
+    if (data_ & TIRData::NPDeltaX) tir->deltax = convert_delta_(-pose.x, x_);
+    if (data_ & TIRData::NPDeltaY) tir->deltay = convert_delta_(pose.y, y_);
+    if (data_ & TIRData::NPDeltaZ) tir->deltaz = convert_delta_(pose.z, z_);
+
+    if (data_ & TIRData::NPSmoothX) tir->smoothx = convert_smooth_(-pose.x);
+    if (data_ & TIRData::NPSmoothY) tir->smoothy = convert_smooth_(pose.y);
+    if (data_ & TIRData::NPSmoothZ) tir->smoothz = convert_smooth_(pose.z);
+  }
+
+  void set_data(short data) { data_ = data; }
+  short get_data() const { return data_; }
+
+  TIRDataSetter() {}
+
+private:
+  float convert_angle_(float pa) const { return pa / 180.0f * 16384.0f; }
+  float convert_t_(float pc) const { return pc * 64.0f; }
+  float convert_raw_(float pc) const { return (pc + 256.0f) * 50.0f; }
+  /* TODO Implement */
+  float convert_delta_(float pc, float & old) { return 0.0f; }
+  float convert_smooth_(float pc) const { return (pc + 256.0f) * 64.0f; }
+
+  short data_ = 0;
+  float x_ = 0.0f, y_ = 0.0f, z_ = 0.0f;
+};
+
 /* Worker functions */
 void list_winapi_joysticks()
 {
@@ -292,6 +338,7 @@ void list_winapi_joysticks()
 std::vector<std::shared_ptr<Updated> > g_updated;
 std::map<UINT, std::shared_ptr<Joystick> > g_joysticks;
 std::shared_ptr<PoseFactory> g_poseFactory;
+TIRDataSetter g_tirDataSetter;
 
 void initialize()
 {
@@ -346,7 +393,7 @@ void handle(void* data)
     auto const pose = g_poseFactory->make_pose();
     //auto const pose = Pose(100.0f, 110.0f, 120.0f, 10.0f, 20.0f, 30.0f);
     //log_message("Pose: ", pose);
-    set_trackir_data(reinterpret_cast<tir_data*>(data), pose.yaw, pose.pitch, pose.roll, pose.x, pose.y, pose.z);
+    g_tirDataSetter.set_trackir_data(reinterpret_cast<tir_data*>(data), pose);
   }
 }
 
@@ -407,12 +454,14 @@ int __stdcall NP_RequestData(short data)
 {
   log_message("NP_RequestData: data", data);
 
+  g_tirDataSetter.set_data(data);
+
   return 0;
 }
 
 int __stdcall NP_GetData(void *data)
 {
-  log_message("NP_GetData");
+  //log_message("NP_GetData");
 
   memset(data, 0, sizeof(tir_data));
 
