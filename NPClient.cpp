@@ -140,7 +140,7 @@ PoseMemberID cstr_to_pose_member_id(char const * name)
   static char const * names[] = {"yaw", "pitch", "roll", "x", "y", "z", "num"};
   for (int i = 0; i < sizeof(names)/sizeof(names[0]); ++i)
   {
-    if (strcmp(names[i], name) == 0)
+    if (strncmp(names[i], name, strlen(names[i])) == 0)
       return static_cast<PoseMemberID>(i);
   }
   return PoseMemberID::num;
@@ -247,6 +247,32 @@ struct TIRData
   };
 };
 
+short cstr_to_tir_data(char const * name)
+{
+  static struct { char const * name; int data; } n2d[] = {
+    { "control", TIRData::NPControl },
+    { "roll", TIRData::NPRoll },
+    { "pitch", TIRData::NPPitch },
+    { "yaw", TIRData::NPYaw },
+    { "x", TIRData::NPX },
+    { "y", TIRData::NPY },
+    { "z", TIRData::NPZ },
+    { "rawx", TIRData::NPRawX },
+    { "rawy", TIRData::NPRawY },
+    { "rawz", TIRData::NPRawZ },
+    { "deltax", TIRData::NPDeltaX },
+    { "deltay", TIRData::NPDeltaY },
+    { "deltaz", TIRData::NPDeltaZ },
+    { "smoothx", TIRData::NPSmoothX },
+    { "smoothy", TIRData::NPSmoothY },
+    { "smoothz", TIRData::NPSmoothZ }
+  };
+  for (auto const & d : n2d)
+    if (0 == strncmp(d.name, name, strlen(d.name)))
+      return d.data;
+  return 0;
+}
+
 class TIRDataSetter
 {
 public:
@@ -255,7 +281,8 @@ public:
   {
     static unsigned short frame = 0;
 
-    memset(tir, 0, sizeof(*tir));
+    if (erase_)
+      memset(tir, 0, sizeof(*tir));
     //TODO What about other members of tir (checksum)?
     tir->status = 0;
     tir->frame = frame++;
@@ -271,9 +298,9 @@ public:
     if (data_ & TIRData::NPRawY) tir->rawy = convert_raw_(pose.y);
     if (data_ & TIRData::NPRawZ) tir->rawz = convert_raw_(pose.z);
 
-    if (data_ & TIRData::NPDeltaX) tir->deltax = convert_delta_(-pose.x, x_);
-    if (data_ & TIRData::NPDeltaY) tir->deltay = convert_delta_(pose.y, y_);
-    if (data_ & TIRData::NPDeltaZ) tir->deltaz = convert_delta_(pose.z, z_);
+    if (data_ & TIRData::NPDeltaX) tir->deltax = convert_delta_(-pose.x, rawx_);
+    if (data_ & TIRData::NPDeltaY) tir->deltay = convert_delta_(pose.y, rawy_);
+    if (data_ & TIRData::NPDeltaZ) tir->deltaz = convert_delta_(pose.z, rawz_);
 
     if (data_ & TIRData::NPSmoothX) tir->smoothx = convert_smooth_(-pose.x);
     if (data_ & TIRData::NPSmoothY) tir->smoothy = convert_smooth_(pose.y);
@@ -283,18 +310,29 @@ public:
   void set_data(short data) { data_ = data; }
   short get_data() const { return data_; }
 
+  void set_erase(bool erase) { erase_ = erase; }
+  bool get_erase() const { return erase_; }
+
   TIRDataSetter() {}
 
 private:
   float convert_angle_(float pa) const { return pa / 180.0f * 16384.0f; }
   float convert_t_(float pc) const { return pc * 64.0f; }
   float convert_raw_(float pc) const { return (pc + 256.0f) * 50.0f; }
-  /* TODO Implement */
-  float convert_delta_(float pc, float & old) { return 0.0f; }
+  float convert_delta_(float pc, float & rawOld)
+  {
+    pc = convert_raw_(pc);
+    if (pc == rawOld)
+      return 0.0f;
+    auto const r = pc - rawOld;
+    rawOld = pc;
+    return r;
+  }
   float convert_smooth_(float pc) const { return (pc + 256.0f) * 64.0f; }
 
+  bool erase_ = true;
   short data_ = 0;
-  float x_ = 0.0f, y_ = 0.0f, z_ = 0.0f;
+  float rawx_ = 0.0f, rawy_ = 0.0f, rawz_ = 0.0f;
 };
 
 /* Worker functions */
@@ -340,15 +378,37 @@ std::map<UINT, std::shared_ptr<Joystick> > g_joysticks;
 std::shared_ptr<PoseFactory> g_poseFactory;
 TIRDataSetter g_tirDataSetter;
 
+template <class R, class C, class K>
+R get_d(C const & config, K&& key, R&& dfault)
+try {
+  return config.at(key).template get<R>();
+} catch (nlohmann::json::out_of_range const & e)
+{
+  return dfault;
+}
+
 void initialize()
 {
   static char const * configName = "NPClient.json";
   std::ifstream configStream (configName);
   auto config = nlohmann::json::parse(configStream);
 
-  auto const printJoystcks = "printJoystcks";
-  if (config.contains(printJoystcks) && config.at(printJoystcks).get<bool>())
+  if (get_d<bool>(config, "printJoysticks", false))
     list_winapi_joysticks();
+
+  auto const tirDataFieldsName = "tirDataFields";
+  short tirDataFields = -1;
+  if (config.contains(tirDataFieldsName))
+  {
+    nlohmann::json const tirDataFieldNames = config.at(tirDataFieldsName);
+    tirDataFields = 0;
+    for (auto const & n : tirDataFieldNames)
+      tirDataFields |= cstr_to_tir_data(n.get<std::string>().data());
+    log_message("TIR data fields to be filled: ", tirDataFieldNames, " (", tirDataFields, ")");
+  }
+  g_tirDataSetter.set_data(tirDataFields);
+
+  g_tirDataSetter.set_erase(get_d(config, "tirDataErase", true));
 
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
   auto & mapping = config.at("mapping");
@@ -454,7 +514,16 @@ int __stdcall NP_RequestData(short data)
 {
   log_message("NP_RequestData: data", data);
 
-  g_tirDataSetter.set_data(data);
+  auto const tirDataFields = g_tirDataSetter.get_data();
+  if (tirDataFields == -1)
+  {
+    g_tirDataSetter.set_data(data);
+    log_message("NP_RequestData: setting data to ", data);
+  }
+  else
+  {
+    log_message("NP_RequestData: leaving data at ", tirDataFields);
+  }
 
   return 0;
 }
