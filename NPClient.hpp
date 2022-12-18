@@ -1,11 +1,8 @@
+#include "sig_data.hpp"
+
 #include <cstdint>
 #include <iostream>
 #include <string>
-
-struct sig_data {
-  char dllsig[200];
-  char appsig[200];
-};
 
 struct tir_data {
   short status;

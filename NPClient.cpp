@@ -464,9 +464,9 @@ int __stdcall NP_GetSignature(struct sig_data *signature)
 
   log_message("NP_GetSignature");
 
-  memset(signature, 0, sizeof(sig_data));
-
-  get_signature((char*)signature);
+  static auto const szd = sizeof(sig_data);
+  memset(signature, 0, szd);
+  memcpy(signature, &sigdata, szd);
 
   return 0;
 }

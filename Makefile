@@ -1,7 +1,7 @@
 CC = i686-w64-mingw32-g++-win32
 TARGET = NPClient.dll
-HEADERS = NPClient.hpp logging.hpp joystick.hpp
-SOURCES = NPClient.cpp logging.cpp joystick.cpp
+HEADERS = NPClient.hpp logging.hpp joystick.hpp sig_data.hpp
+SOURCES = NPClient.cpp logging.cpp joystick.cpp sig_data.cpp
 OBJECTS = $(SOURCES:%.cpp=%.o)
 #If compiled with -On, dll can not be loaded
 CFLAGS = -std=c++11 -I. -D_WIN32_WINNT=0x0501 -DNDEBUG -Os -ffunction-sections -fdata-sections
