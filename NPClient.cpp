@@ -279,13 +279,11 @@ public:
   /* pose yaw, pitch, roll are +/- 180.0f degrees; pose x, y, z, are +/- 256.0f centimeters */
   void set_trackir_data(tir_data* tir, Pose const & pose)
   {
-    static unsigned short frame = 0;
-
     if (erase_)
       memset(tir, 0, sizeof(*tir));
     //TODO What about other members of tir (checksum)?
     tir->status = 0;
-    tir->frame = frame++;
+    tir->frame = frame_++;
     if (data_ & TIRData::NPYaw) tir->yaw = convert_angle_(-pose.yaw);
     if (data_ & TIRData::NPPitch) tir->pitch = convert_angle_(-pose.pitch);
     if (data_ & TIRData::NPRoll) tir->roll = convert_angle_(-pose.roll);
@@ -313,6 +311,9 @@ public:
   void set_erase(bool erase) { erase_ = erase; }
   bool get_erase() const { return erase_; }
 
+  void set_frame(unsigned short frame) { frame_ = frame; }
+  unsigned short get_frame() const { return frame_; }
+
   TIRDataSetter() {}
 
 private:
@@ -332,6 +333,7 @@ private:
 
   bool erase_ = true;
   short data_ = 0;
+  unsigned short frame_ = 0;
   float rawx_ = 0.0f, rawy_ = 0.0f, rawz_ = 0.0f;
 };
 
@@ -408,7 +410,8 @@ void initialize()
   }
   g_tirDataSetter.set_data(tirDataFields);
 
-  g_tirDataSetter.set_erase(get_d(config, "tirDataErase", true));
+  g_tirDataSetter.set_erase(get_d(config, "tirEraseData", true));
+  g_tirDataSetter.set_frame(get_d(config, "tirStartFrame", 0));
 
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
   auto & mapping = config.at("mapping");
