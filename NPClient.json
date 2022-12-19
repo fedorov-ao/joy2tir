@@ -1,5 +1,7 @@
 {
   "printJoystcks" : true,
+  "tirDataFields" : ["control", "yaw", "pitch", "roll", "x", "y", "z"],
+  "tirEraseData" : true,
   "mapping" :
   [
     { "tirAxis" : "yaw", "joystick" : 3, "joyAxis" : "x", "limits" : [-170.0, 170.0] },
