@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <map>
+#include <sstream>
 
 #include <time.h>
 #include <cstring> //memset
@@ -237,6 +238,11 @@ AxisPoseFactory::AxisPoseFactory()
 /* tir_data setter */
 struct TIRData
 {
+private:
+  struct Cstr2Value { char const * name; int value; };
+  static Cstr2Value cstr2value_[16];
+
+public:
   enum type {
     NPControl = 8,
     NPRoll = 1, NPPitch = 2, NPYaw = 4,
@@ -245,33 +251,50 @@ struct TIRData
     NPDeltaX = 1024, NPDeltaY = 2048, NPDeltaZ = 4096,
     NPSmoothX = 8192, NPSmoothY = 16384, NPSmoothZ = 32768
   };
+
+  static short from_cstr(char const * name)
+  {
+    for (auto const & d : cstr2value_)
+      if (0 == strncmp(d.name, name, strlen(d.name)))
+        return d.value;
+    return 0;
+  }
+
+  static char const * to_cstr(TIRData::type value)
+  {
+    for (auto const & d : cstr2value_)
+      if (d.value == value)
+        return d.name;
+    return "";
+  }
+
+  template <class C>
+  static void to_cstr_cb(int value, C && cb)
+  {
+    for (auto const & d : cstr2value_)
+      if (d.value & value)
+        cb(d.name);
+  }
 };
 
-short cstr_to_tir_data(char const * name)
-{
-  static struct { char const * name; int data; } n2d[] = {
-    { "control", TIRData::NPControl },
-    { "roll", TIRData::NPRoll },
-    { "pitch", TIRData::NPPitch },
-    { "yaw", TIRData::NPYaw },
-    { "x", TIRData::NPX },
-    { "y", TIRData::NPY },
-    { "z", TIRData::NPZ },
-    { "rawx", TIRData::NPRawX },
-    { "rawy", TIRData::NPRawY },
-    { "rawz", TIRData::NPRawZ },
-    { "deltax", TIRData::NPDeltaX },
-    { "deltay", TIRData::NPDeltaY },
-    { "deltaz", TIRData::NPDeltaZ },
-    { "smoothx", TIRData::NPSmoothX },
-    { "smoothy", TIRData::NPSmoothY },
-    { "smoothz", TIRData::NPSmoothZ }
-  };
-  for (auto const & d : n2d)
-    if (0 == strncmp(d.name, name, strlen(d.name)))
-      return d.data;
-  return 0;
-}
+TIRData::Cstr2Value TIRData::cstr2value_[16] = {
+  { "control", TIRData::NPControl },
+  { "roll", TIRData::NPRoll },
+  { "pitch", TIRData::NPPitch },
+  { "yaw", TIRData::NPYaw },
+  { "x", TIRData::NPX },
+  { "y", TIRData::NPY },
+  { "z", TIRData::NPZ },
+  { "rawx", TIRData::NPRawX },
+  { "rawy", TIRData::NPRawY },
+  { "rawz", TIRData::NPRawZ },
+  { "deltax", TIRData::NPDeltaX },
+  { "deltay", TIRData::NPDeltaY },
+  { "deltaz", TIRData::NPDeltaZ },
+  { "smoothx", TIRData::NPSmoothX },
+  { "smoothy", TIRData::NPSmoothY },
+  { "smoothz", TIRData::NPSmoothZ }
+};
 
 class TIRDataSetter
 {
@@ -405,7 +428,7 @@ void initialize()
     nlohmann::json const tirDataFieldNames = config.at(tirDataFieldsName);
     tirDataFields = 0;
     for (auto const & n : tirDataFieldNames)
-      tirDataFields |= cstr_to_tir_data(n.get<std::string>().data());
+      tirDataFields |= TIRData::from_cstr(n.get<std::string>().data());
     log_message("TIR data fields to be filled: ", tirDataFieldNames, " (", tirDataFields, ")");
   }
   g_tirDataSetter.set_data(tirDataFields);
@@ -515,7 +538,20 @@ int __stdcall NP_RegisterProgramProfileID(short id)
 
 int __stdcall NP_RequestData(short data)
 {
-  log_message("NP_RequestData: data", data);
+  std::stringstream ss;
+  bool first = true;
+  TIRData::to_cstr_cb(
+    data,
+    [&ss, &first](char const * name)
+    {
+      if (!first)
+        ss << ", ";
+      else
+        first = false;
+      ss << "\"" << name << "\"";
+    }
+  );
+  log_message("NP_RequestData: requested data: [", ss.str(), "] (", data, ")");
 
   auto const tirDataFields = g_tirDataSetter.get_data();
   if (tirDataFields == -1)
