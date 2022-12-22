@@ -11,7 +11,8 @@ INSTALL_PATH = ./bin
 TEST_TARGET = joystick_test.exe
 TEST_SOURCES = joystick_test.cpp logging.cpp joystick.cpp
 TEST_OBJECTS = $(TEST_SOURCES:%.cpp=%.o)
-TEST_LDFLAGS = -static-libstdc++ -static-libgcc -s -Wl,--gc-sections,--exclude-all-symbols,--kill-at,-lwinmm
+#Link std libs statically, or else won't work!
+TEST_LDFLAGS = -static-libstdc++ -static-libgcc -s -Wl,--gc-sections,--exclude-all-symbols,--kill-at,-lwinmm,-lgdi32
 
 %.o: %.cpp $(HEADERS)
 	$(CC) $(CFLAGS) -c $*.cpp
