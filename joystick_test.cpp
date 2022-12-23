@@ -136,6 +136,21 @@ std::vector<RawDeviceInfo> get_raw_devices()
   return devices;
 }
 
+void register_raw_device(RawDeviceInfo const & rdi, HWND hwnd, bool remove = false)
+{
+  static const UINT numRid = 1;
+  RAWINPUTDEVICE rid[numRid];
+  rid[0].usUsagePage = rdi.usagePage;
+  rid[0].usUsage = rdi.usage;
+  UINT dwFlags = RIDEV_INPUTSINK;
+  if (remove)
+    dwFlags |= RIDEV_REMOVE;
+  rid[0].dwFlags = dwFlags;
+  rid[0].hwndTarget = hwnd;
+  if (!RegisterRawInputDevices(rid, numRid, sizeof(RAWINPUTDEVICE)))
+    throw std::runtime_error("Failed to register device");
+}
+
 HWND create_window(WNDPROC wndProc, char const * className, char const * windowName, bool useMessageWindow)
 {
   //Define Window Class
