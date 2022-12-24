@@ -99,8 +99,8 @@ std::vector<RawDeviceInfo> get_raw_devices()
     r = GetRawInputDeviceInfoA(ridl.hDevice, RIDI_DEVICENAME, nullptr, &szName);
     if (-1 == r)
       throw std::runtime_error("Error getting device name string length");
-    std::string name (szName+1, '\0');
-    r = GetRawInputDeviceInfoA(ridl.hDevice, RIDI_DEVICENAME, const_cast<char*>(name.data()), &szName);
+    char name [256];
+    r = GetRawInputDeviceInfoA(ridl.hDevice, RIDI_DEVICENAME, name, &szName);
     if (-1 == r)
       throw std::runtime_error("Error getting device name");
     RID_DEVICE_INFO ridi;
@@ -144,7 +144,10 @@ void register_raw_device(RawDeviceInfo const & rdi, HWND hwnd, bool remove = fal
   rid[0].usUsage = rdi.usage;
   UINT dwFlags = RIDEV_INPUTSINK;
   if (remove)
+  {
     dwFlags |= RIDEV_REMOVE;
+    hwnd = NULL;
+  }
   rid[0].dwFlags = dwFlags;
   rid[0].hwndTarget = hwnd;
   if (!RegisterRawInputDevices(rid, numRid, sizeof(RAWINPUTDEVICE)))
