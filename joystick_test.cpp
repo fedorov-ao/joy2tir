@@ -2,6 +2,9 @@
 #include "logging.hpp"
 
 #include <vector>
+#include <map>
+#include <functional>
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -194,6 +197,93 @@ LRESULT __stdcall wnd_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   return DefWindowProcA(hWnd, msg, wParam, lParam);
 }
 
+class RawInputSource
+{
+public:
+  using callback_t = std::function<void(RAWINPUT const &)>;
+
+  std::vector<RawDeviceInfo> get_devices() const
+  {
+    return get_raw_devices();
+  }
+
+  void track(RawDeviceInfo const & rdi, callback_t const & cb)
+  {
+    auto const handle = rdi.handle;
+    auto it = devs_.find(handle);
+    if (it == devs_.end())
+    {
+      devs_[handle] = decltype(devs_)::mapped_type(1, cb);
+      //TODO Don't register if same usagePage and usage were already registered
+      register_raw_device(rdi, hwnd_, false);
+    }
+    else
+    {
+      auto & callbacks = it->second;
+#if(0)
+      auto end = callbacks.end();
+      if (std::find(callbacks.begin(), end, cb) == end)
+        callbacks.push_back(cb);
+#else
+      callbacks.push_back(cb);
+#endif
+    }
+  }
+
+  void run_once()
+  {
+    MSG msg;
+    while (PeekMessageA(&msg, hwnd_, 0, 0, PM_REMOVE) != 0)
+    {
+      if (msg.message != WM_INPUT)
+        continue;
+      RAWINPUT raw;
+      UINT dwSize = sizeof(raw);
+      //TODO Use GetRawInputBuffer() ?
+      if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg.lParam), RID_INPUT, &raw, &dwSize, sizeof(RAWINPUTHEADER)) <= 0)
+        continue;
+      auto const hDevice = raw.header.hDevice;
+      auto it = devs_.find(hDevice);
+      if (it != devs_.end())
+        for (auto & cb : it->second)
+          cb(raw);
+    }
+  }
+
+  RawInputSource(char const * name, bool useMessageWindow=true) : name_(name)
+  {
+    hwnd_ = create_window(wnd_proc_, name, name, useMessageWindow);
+  }
+
+  ~RawInputSource()
+  {
+    DestroyWindow(hwnd_);
+    UnregisterClassA(name_.c_str(), 0);
+  }
+
+private:
+  static LRESULT __stdcall wnd_proc_(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+  {
+    if (msg == WM_DESTROY) PostQuitMessage(0);
+    return DefWindowProcA(hWnd, msg, wParam, lParam);
+  }
+
+  using devs_t_ = std::map<HANDLE, std::vector<callback_t> >;
+  devs_t_ devs_;
+  HWND hwnd_ = NULL;
+  std::string name_;
+};
+
+std::ostream & operator<<(std::ostream & os, RAWINPUTHEADER const & rih)
+{
+  return os << "dwType: " << rih.dwType << "; dwSize: " << rih.dwSize << "; hDevice: " << rih.hDevice << "; wParam: " << rih.wParam;
+}
+
+std::ostream & operator<<(std::ostream & os, RAWINPUT const & ri)
+{
+  return os << "header: " << ri.header;
+}
+
 int main(int argc, char** argv)
 {
   if (argc == 1)
@@ -238,6 +328,22 @@ int main(int argc, char** argv)
     r = UnregisterClassA(className, 0);
     if (0 == r)
       throw std::runtime_error("Error unregistering window class");
+    return 0;
+  }
+  else if (mode == "raw_input_source")
+  {
+    auto const useMessageWindow = strcmp("true", argv[2]) == 0;
+    RawInputSource ris ("RawInputSource", useMessageWindow);
+    auto deviceInfos = ris.get_devices();
+    for (auto & di : deviceInfos)
+    {
+      std::cout << di << std::endl;
+      ris.track(di, [](RAWINPUT const & ri) { std::cout << ri << std::endl; });
+    }
+    while (true)
+    {
+      ris.run_once();
+    }
     return 0;
   }
   else
