@@ -46,13 +46,13 @@ public:
   virtual ~Updated() =default;
 };
 
-class WinApiJoystick : public Joystick, public Updated
+class LegacyJoystick : public Joystick, public Updated
 {
 public:
   virtual float get_axis_value(AxisID axisID) const override;
   virtual void update() override;
 
-  WinApiJoystick(UINT joyID);
+  LegacyJoystick(UINT joyID);
 
 private:
   static NativeAxisID w2n_axis_(AxisID ai);

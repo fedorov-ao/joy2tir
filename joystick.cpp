@@ -103,12 +103,12 @@ std::string describe_joyinfoex(JOYINFOEX& ji)
   return ss.str();
 }
 
-float WinApiJoystick::get_axis_value(AxisID axisID) const
+float LegacyJoystick::get_axis_value(AxisID axisID) const
 {
   return this->axes_[static_cast<int>(axisID)];
 }
 
-void WinApiJoystick::update()
+void LegacyJoystick::update()
 {
   JOYINFOEX ji;
   auto const sji = sizeof(ji);
@@ -129,7 +129,7 @@ void WinApiJoystick::update()
   }
 }
 
-WinApiJoystick::WinApiJoystick(UINT joyID) : joyID_(joyID)
+LegacyJoystick::LegacyJoystick(UINT joyID) : joyID_(joyID)
 {
   memset(&this->axes_, 0, sizeof(this->axes_));
 
@@ -146,7 +146,7 @@ WinApiJoystick::WinApiJoystick(UINT joyID) : joyID_(joyID)
   }
 }
 
-NativeAxisID WinApiJoystick::w2n_axis_(AxisID ai)
+NativeAxisID LegacyJoystick::w2n_axis_(AxisID ai)
 {
   static struct D { AxisID ai; NativeAxisID nai; } mapping[] = 
   {

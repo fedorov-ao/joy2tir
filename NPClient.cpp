@@ -361,7 +361,7 @@ private:
 };
 
 /* Worker functions */
-void list_winapi_joysticks()
+void list_legacy_joysticks()
 {
   UINT numJoysticks = joyGetNumDevs();
   log_message("Number of joystics: ", numJoysticks);
@@ -419,7 +419,7 @@ void initialize()
   auto config = nlohmann::json::parse(configStream);
 
   if (get_d<bool>(config, "printJoysticks", false))
-    list_winapi_joysticks();
+    list_legacy_joysticks();
 
   auto const tirDataFieldsName = "tirDataFields";
   short tirDataFields = -1;
@@ -454,12 +454,19 @@ void initialize()
     std::shared_ptr<Joystick> spJoystick;
     auto itJoystick = g_joysticks.find(joyID);
     if (g_joysticks.end() == itJoystick)
-    {
-      auto spj = std::make_shared<WinApiJoystick>(joyID);
+    try {
+      auto spj = std::make_shared<LegacyJoystick>(joyID);
       g_joysticks[joyID] = spj;
       g_updated.push_back(spj);
       spJoystick = spj;
+    } catch (std::runtime_error & e)
+    {
+      log_message("Could not create joystick ", joyID, " (", e.what(), ")");
+      g_joysticks[joyID] = nullptr;
+      continue;
     }
+    else if (itJoystick->second == nullptr)
+      continue;
     else
       spJoystick = itJoystick->second;
 
