@@ -10,12 +10,16 @@
 #include <time.h>
 #include <cstring> //memset
 
-/* TrackIR */
-void get_signature(char* signature)
+template <class R, class C, class K>
+R get_d(C const & config, K&& key, R&& dfault)
+try {
+  return config.at(key).template get<R>();
+} catch (nlohmann::json::out_of_range const & e)
 {
-  //TODO Fill signature
+  return dfault;
 }
 
+/* TrackIR */
 /*
 tir2joy-master/NPClient.h:55
 // DATA FIELDS
@@ -260,7 +264,7 @@ public:
     return 0;
   }
 
-  static char const * to_cstr(TIRData::type value)
+  static char const * to_cstr(short value)
   {
     for (auto const & d : cstr2value_)
       if (d.value == value)
@@ -274,6 +278,24 @@ public:
     for (auto const & d : cstr2value_)
       if (d.value & value)
         cb(d.name);
+  }
+
+  static std::string to_str(short value)
+  {
+    std::stringstream ss;
+    bool first = true;
+    TIRData::to_cstr_cb(
+      value,
+      [&ss, &first](char const * name)
+      {
+        if (!first)
+          ss << ", ";
+        else
+          first = false;
+        ss << "\"" << name << "\"";
+      }
+    );
+    return ss.str();
   }
 };
 
@@ -398,23 +420,27 @@ void list_legacy_joysticks()
   }
 }
 
-std::vector<std::shared_ptr<Updated> > g_updated;
-std::map<std::string, std::shared_ptr<Joystick> > g_joysticks;
-std::shared_ptr<PoseFactory> g_poseFactory;
-TIRDataSetter g_tirDataSetter;
-
-template <class R, class C, class K>
-R get_d(C const & config, K&& key, R&& dfault)
-try {
-  return config.at(key).template get<R>();
-} catch (nlohmann::json::out_of_range const & e)
+/* Main class */
+class Main
 {
-  return dfault;
-}
+public:
+  void set_tir_data_fields(short dataFields);
+  void fill_tir_data(void * data);
+  void update();
 
-void initialize()
+  Main(char const * configName);
+
+private:
+  std::vector<std::shared_ptr<Updated> > updated_;
+  std::map<std::string, std::shared_ptr<Joystick> > joysticks_;
+  std::shared_ptr<PoseFactory> spPoseFactory_;
+  TIRDataSetter tirDataSetter_;
+};
+
+std::shared_ptr<Main> g_spMain;
+
+Main::Main(char const * configName)
 {
-  static char const * configName = "NPClient.json";
   std::ifstream configStream (configName);
   auto config = nlohmann::json::parse(configStream);
 
@@ -431,10 +457,10 @@ void initialize()
       tirDataFields |= TIRData::from_cstr(n.get<std::string>().data());
     log_message("TIR data fields to be filled: ", tirDataFieldNames, " (", tirDataFields, ")");
   }
-  g_tirDataSetter.set_data(tirDataFields);
+  tirDataSetter_.set_data(tirDataFields);
 
-  g_tirDataSetter.set_erase(get_d(config, "tirEraseData", true));
-  g_tirDataSetter.set_frame(get_d(config, "tirStartFrame", 0));
+  tirDataSetter_.set_erase(get_d(config, "tirEraseData", true));
+  tirDataSetter_.set_frame(get_d(config, "tirStartFrame", 0));
 
   auto const & joysticks = config.at("joysticks");
   for (auto const & j : joysticks.items())
@@ -447,8 +473,8 @@ void initialize()
       try {
         auto const joyID = get_d<UINT>(cfg, "id", 0);
         auto const spj = std::make_shared<LegacyJoystick>(joyID);
-        g_joysticks[name] = spj;
-        g_updated.push_back(spj);
+        joysticks_[name] = spj;
+        updated_.push_back(spj);
       } catch (std::runtime_error & e)
       {
         log_message("Could not create joystick '", name, "' (", e.what(), ")");
@@ -474,8 +500,8 @@ void initialize()
       limits.second = l[1].get<float>();
     }
 
-    auto itJoystick = g_joysticks.find(joyName);
-    if (g_joysticks.end() == itJoystick)
+    auto itJoystick = joysticks_.find(joyName);
+    if (joysticks_.end() == itJoystick)
     {
       log_message("Could not create mapping for TIR axis '", tirAxisName, "' (joystick '", joyName, "' was not created)");
       continue;
@@ -484,21 +510,38 @@ void initialize()
     auto spAxis = std::make_shared<JoystickAxis>(itJoystick->second, axisID);
     spPoseFactory->set_mapping(poseMemberID, spAxis, limits);
   }
-  g_poseFactory = spPoseFactory;
+  spPoseFactory_ = spPoseFactory;
 }
 
-void handle(void* data)
+void Main::set_tir_data_fields(short dataFields)
 {
-  for (auto const & sp : g_updated)
-    sp->update();
+  auto const dataFieldsStr = TIRData::to_str(dataFields);
+  log_message("Application requests TIR data fields to be filled: [", dataFieldsStr, "] (", dataFields, ")");
 
-  if (g_poseFactory)
+  auto const configDataFields = tirDataSetter_.get_data();
+  if (configDataFields == -1)
   {
-    auto const pose = g_poseFactory->make_pose();
-    //auto const pose = Pose(100.0f, 110.0f, 120.0f, 10.0f, 20.0f, 30.0f);
-    //log_message("Pose: ", pose);
-    g_tirDataSetter.set_trackir_data(reinterpret_cast<tir_data*>(data), pose);
+    tirDataSetter_.set_data(dataFields);
+    log_message("Will fill TIR data fields: [", dataFieldsStr, "] (", dataFields, ")");
   }
+  else
+  {
+    log_message("Will fill TIR data fields: [", TIRData::to_str(configDataFields), "] (", configDataFields, "), as specified in config");
+  }
+}
+
+void Main::update()
+{
+  for (auto const & sp : updated_)
+    sp->update();
+}
+
+void Main::fill_tir_data(void * data)
+{
+  auto const pose = spPoseFactory_->make_pose();
+  //auto const pose = Pose(100.0f, 110.0f, 120.0f, 10.0f, 20.0f, 30.0f);
+  //log_message("Pose: ", pose);
+  tirDataSetter_.set_trackir_data(reinterpret_cast<tir_data*>(data), pose);
 }
 
 /* Exported Dll functions. */
@@ -535,7 +578,7 @@ int __stdcall NP_RegisterWindowHandle(void *handle)
 {
   log_message("NP_RegisterWindowHandle, handle: ", handle);
 
-  initialize();
+  g_spMain = std::make_shared<Main>("NPClient.json");
 
   return 0;
 }
@@ -554,38 +597,12 @@ int __stdcall NP_RegisterProgramProfileID(short id)
   return 0;
 }
 
-std::string tirdata_to_str(short data)
+int __stdcall NP_RequestData(short dataFields)
 {
-  std::stringstream ss;
-  bool first = true;
-  TIRData::to_cstr_cb(
-    data,
-    [&ss, &first](char const * name)
-    {
-      if (!first)
-        ss << ", ";
-      else
-        first = false;
-      ss << "\"" << name << "\"";
-    }
-  );
-  return ss.str();
-}
+  log_message("NP_RequestData");
 
-int __stdcall NP_RequestData(short data)
-{
-  log_message("NP_RequestData: application requests TIR data fields to be filled: [", tirdata_to_str(data), "] (", data, ")");
-
-  auto const configData = g_tirDataSetter.get_data();
-  if (configData == -1)
-  {
-    g_tirDataSetter.set_data(data);
-    log_message("NP_RequestData: will fill TIR data fields: [", tirdata_to_str(data), "] (", data, ")");
-  }
-  else
-  {
-    log_message("NP_RequestData: will fill TIR data fields: [", tirdata_to_str(configData), "] (", data, "), as specified in config");
-  }
+  if (g_spMain)
+    g_spMain->set_tir_data_fields(dataFields);
 
   return 0;
 }
@@ -594,7 +611,11 @@ int __stdcall NP_GetData(void *data)
 {
   //log_message("NP_GetData");
 
-  handle(data);
+  if (g_spMain)
+  {
+    g_spMain->update();
+    g_spMain->fill_tir_data(data);
+  }
 
   return 0;
 }
