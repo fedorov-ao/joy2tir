@@ -138,7 +138,7 @@ LegacyJoystick::LegacyJoystick(UINT joyID) : joyID_(joyID)
   memset(&jc, 0, sjc);
   auto mmr = joyGetDevCaps(this->joyID_, &jc, sjc);
   if (JOYERR_NOERROR != mmr)
-    throw std::runtime_error("Cannot get joystick caps");
+    throw std::runtime_error("Cannot get joystick caps or joystick is disconnected");
   for (auto i = static_cast<int>(NativeAxisID::first); i < static_cast<int>(NativeAxisID::num); ++i)
   {
     auto const nai = static_cast<NativeAxisID>(i);

@@ -399,7 +399,7 @@ void list_legacy_joysticks()
 }
 
 std::vector<std::shared_ptr<Updated> > g_updated;
-std::map<UINT, std::shared_ptr<Joystick> > g_joysticks;
+std::map<std::string, std::shared_ptr<Joystick> > g_joysticks;
 std::shared_ptr<PoseFactory> g_poseFactory;
 TIRDataSetter g_tirDataSetter;
 
@@ -436,12 +436,35 @@ void initialize()
   g_tirDataSetter.set_erase(get_d(config, "tirEraseData", true));
   g_tirDataSetter.set_frame(get_d(config, "tirStartFrame", 0));
 
+  auto const & joysticks = config.at("joysticks");
+  for (auto const & j : joysticks.items())
+  {
+    auto const name = j.key();
+    auto const cfg = j.value();
+    auto const type = get_d<std::string>(cfg, "type", "");
+    if (type == "legacy")
+    {
+      try {
+        auto const joyID = get_d<UINT>(cfg, "id", 0);
+        auto const spj = std::make_shared<LegacyJoystick>(joyID);
+        g_joysticks[name] = spj;
+        g_updated.push_back(spj);
+      } catch (std::runtime_error & e)
+      {
+        log_message("Could not create joystick '", name, "' (", e.what(), ")");
+      }
+    }
+    else
+      log_message("Could not create joystick '", name, "' (unknown type: '", type, "')");
+  }
+
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
   auto & mapping = config.at("mapping");
   for (auto & e : mapping)
   {
-    auto poseMemberID = cstr_to_pose_member_id(e.at("tirAxis").get<std::string>().data());
-    auto joyID = e.at("joystick").get<UINT>();
+    auto const tirAxisName = e.at("tirAxis").get<std::string>();
+    auto poseMemberID = cstr_to_pose_member_id(tirAxisName.data());
+    auto const joyName = e.at("joystick").get<std::string>();
     auto axisID = cstr_to_axis_id(e.at("joyAxis").get<std::string>().data());
     auto limits = AxisPoseFactory::limits_t(-1.0f, 1.0f);
     if (e.contains("limits"))
@@ -451,26 +474,14 @@ void initialize()
       limits.second = l[1].get<float>();
     }
 
-    std::shared_ptr<Joystick> spJoystick;
-    auto itJoystick = g_joysticks.find(joyID);
+    auto itJoystick = g_joysticks.find(joyName);
     if (g_joysticks.end() == itJoystick)
-    try {
-      auto spj = std::make_shared<LegacyJoystick>(joyID);
-      g_joysticks[joyID] = spj;
-      g_updated.push_back(spj);
-      spJoystick = spj;
-    } catch (std::runtime_error & e)
     {
-      log_message("Could not create joystick ", joyID, " (", e.what(), ")");
-      g_joysticks[joyID] = nullptr;
+      log_message("Could not create mapping for TIR axis '", tirAxisName, "' (joystick '", joyName, "' was not created)");
       continue;
     }
-    else if (itJoystick->second == nullptr)
-      continue;
-    else
-      spJoystick = itJoystick->second;
 
-    auto spAxis = std::make_shared<JoystickAxis>(spJoystick, axisID);
+    auto spAxis = std::make_shared<JoystickAxis>(itJoystick->second, axisID);
     spPoseFactory->set_mapping(poseMemberID, spAxis, limits);
   }
   g_poseFactory = spPoseFactory;

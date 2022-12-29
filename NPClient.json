@@ -2,13 +2,18 @@
   "printJoystcks" : true,
   "tirDataFields" : ["control", "yaw", "pitch", "roll", "x", "y", "z"],
   "tirEraseData" : true,
+  "joysticks" :
+  {
+    "angles" : { "type" : "legacy", "id" : 3 },
+    "position" : { "type" : "legacy", "id" : 2 }
+  },
   "mapping" :
   [
-    { "tirAxis" : "yaw", "joystick" : 3, "joyAxis" : "x", "limits" : [-170.0, 170.0] },
-    { "tirAxis" : "pitch", "joystick" : 3, "joyAxis" : "y", "limits" : [-90.0, 90.0] },
-    { "tirAxis" : "roll", "joystick" : 3, "joyAxis" : "z", "limits" : [-180.0, 180.0] },
-    { "tirAxis" : "x", "joystick" : 2, "joyAxis" : "x", "limits" : [-256.0, 256.0] },
-    { "tirAxis" : "y", "joystick" : 2, "joyAxis" : "y", "limits" : [-256.0, 256.0] },
-    { "tirAxis" : "z", "joystick" : 2, "joyAxis" : "z", "limits" : [-256.0, 256.0] }
+    { "tirAxis" : "yaw", "joystick" : "angles", "joyAxis" : "x", "limits" : [-170.0, 170.0] },
+    { "tirAxis" : "pitch", "joystick" : "angles", "joyAxis" : "y", "limits" : [-90.0, 90.0] },
+    { "tirAxis" : "roll", "joystick" : "angles", "joyAxis" : "z", "limits" : [-180.0, 180.0] },
+    { "tirAxis" : "x", "joystick" : "position", "joyAxis" : "x", "limits" : [-256.0, 256.0] },
+    { "tirAxis" : "y", "joystick" : "position", "joyAxis" : "y", "limits" : [-256.0, 256.0] },
+    { "tirAxis" : "z", "joystick" : "position", "joyAxis" : "z", "limits" : [-256.0, 256.0] }
   ]
 }
