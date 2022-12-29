@@ -554,7 +554,7 @@ int __stdcall NP_RegisterProgramProfileID(short id)
   return 0;
 }
 
-int __stdcall NP_RequestData(short data)
+std::string tirdata_to_str(short data)
 {
   std::stringstream ss;
   bool first = true;
@@ -569,17 +569,22 @@ int __stdcall NP_RequestData(short data)
       ss << "\"" << name << "\"";
     }
   );
-  log_message("NP_RequestData: requested data: [", ss.str(), "] (", data, ")");
+  return ss.str();
+}
 
-  auto const tirDataFields = g_tirDataSetter.get_data();
-  if (tirDataFields == -1)
+int __stdcall NP_RequestData(short data)
+{
+  log_message("NP_RequestData: application requests TIR data fields to be filled: [", tirdata_to_str(data), "] (", data, ")");
+
+  auto const configData = g_tirDataSetter.get_data();
+  if (configData == -1)
   {
     g_tirDataSetter.set_data(data);
-    log_message("NP_RequestData: setting data to ", data);
+    log_message("NP_RequestData: will fill TIR data fields: [", tirdata_to_str(data), "] (", data, ")");
   }
   else
   {
-    log_message("NP_RequestData: leaving data at ", tirDataFields);
+    log_message("NP_RequestData: will fill TIR data fields: [", tirdata_to_str(configData), "] (", data, "), as specified in config");
   }
 
   return 0;
