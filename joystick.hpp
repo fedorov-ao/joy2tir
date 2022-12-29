@@ -16,15 +16,23 @@ T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
 }
 
 /* Joysticks */
-enum class NativeAxisID { x = 0, first = x, y, z, r, u, v, num };
-enum class AxisID {  x = 0, first = x, y, z, rx, ry, rz, num };
+struct NativeAxisID { enum type { x = 0, first = x, y, z, r, u, v, num }; };
 
-char const * axis_id_to_cstr(AxisID id);
-AxisID cstr_to_axis_id(char const * name);
+struct AxisID
+{
+  enum type { x = 0, first = x, y, z, rx, ry, rz, num };
 
-std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID id);
+  static char const * to_cstr(type id);
+  static type from_cstr(char const * name);
 
-DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, NativeAxisID id);
+private:
+  static char const * names_[num];
+};
+
+
+std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID::type id);
+
+DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, NativeAxisID::type id);
 
 std::string describe_joycaps(JOYCAPS& jc);
 
@@ -33,7 +41,7 @@ std::string describe_joyinfoex(JOYINFOEX& ji);
 class Joystick
 {
 public:
-  virtual float get_axis_value(AxisID axisID) const =0;
+  virtual float get_axis_value(AxisID::type axisID) const =0;
 
   virtual ~Joystick() =default;
 };
@@ -49,17 +57,17 @@ public:
 class LegacyJoystick : public Joystick, public Updated
 {
 public:
-  virtual float get_axis_value(AxisID axisID) const override;
+  virtual float get_axis_value(AxisID::type axisID) const override;
   virtual void update() override;
 
   LegacyJoystick(UINT joyID);
 
 private:
-  static NativeAxisID w2n_axis_(AxisID ai);
+  static NativeAxisID::type w2n_axis_(AxisID::type ai);
 
   UINT joyID_;
-  std::pair<UINT, UINT> nativeLimits_[static_cast<int>(NativeAxisID::num)];
-  float axes_[static_cast<int>(AxisID::num)];
+  std::pair<UINT, UINT> nativeLimits_[NativeAxisID::num];
+  float axes_[AxisID::num];
 };
 
 class Axis
@@ -75,11 +83,11 @@ class JoystickAxis : public Axis
 public:
   virtual float get_value() const;
 
-  JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID axisID);
+  JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID::type axisID);
 
 private:
   std::shared_ptr<Joystick> spJoystick_;
-  AxisID axisID_;
+  AxisID::type axisID_;
 };
 
 #endif

@@ -4,27 +4,24 @@
 #include <sstream>
 
 /* Joysticks */
-char const * axis_id_to_cstr(AxisID id)
+char const * AxisID::names_[AxisID::num] = {"x", "y", "z", "rx", "ry", "rz"};
+
+char const * AxisID::to_cstr(AxisID::type id)
 {
-  static char const * names[] = {"x", "y", "z", "rx", "ry", "rz", "num"};
-  auto const iid = static_cast<int>(id);
-  auto const ifirst = static_cast<int>(AxisID::first);
-  auto const inum = static_cast<int>(AxisID::num);
-  return (iid < ifirst || iid > inum) ? "unknown" : names[iid];
+  return (id < first || id > num) ? "unknown" : names_[id];
 }
 
-AxisID cstr_to_axis_id(char const * name)
+AxisID::type AxisID::from_cstr(char const * name)
 {
-  static char const * names[] = {"x", "y", "z", "rx", "ry", "rz", "num"};
-  for (int i = 0; i < sizeof(names)/sizeof(names[0]); ++i)
+  for (int i = 0; i < sizeof(names_)/sizeof(names_[0]); ++i)
   {
-    if (strcmp(names[i], name) == 0)
-      return static_cast<AxisID>(i);
+    if (strcmp(names_[i], name) == 0)
+      return static_cast<type>(i);
   }
-  return AxisID::num;
+  return num;
 }
 
-std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID id)
+std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID::type id)
 {
   switch (id)
   {
@@ -38,7 +35,7 @@ std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID i
   }
 }
 
-DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, NativeAxisID id)
+DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, NativeAxisID::type id)
 {
   switch (id)
   {
@@ -103,9 +100,9 @@ std::string describe_joyinfoex(JOYINFOEX& ji)
   return ss.str();
 }
 
-float LegacyJoystick::get_axis_value(AxisID axisID) const
+float LegacyJoystick::get_axis_value(AxisID::type axisID) const
 {
-  return this->axes_[static_cast<int>(axisID)];
+  return this->axes_[axisID];
 }
 
 void LegacyJoystick::update()
@@ -118,13 +115,13 @@ void LegacyJoystick::update()
   auto mmr = joyGetPosEx(this->joyID_, &ji);
   if (JOYERR_NOERROR != mmr)
     throw std::runtime_error("Cannot get joystick info");
-  for (auto i = static_cast<int>(AxisID::first); i < static_cast<int>(AxisID::num); ++i)
+  for (int i = AxisID::first; i < AxisID::num; ++i)
   {
-    auto const ai = static_cast<AxisID>(i);
+    auto const ai = static_cast<AxisID::type>(i);
     auto const nai = this->w2n_axis_(ai);
     if (NativeAxisID::num == nai)
       throw std::logic_error("Bad axis id");
-    auto const & l = this->nativeLimits_[static_cast<int>(nai)];
+    auto const & l = this->nativeLimits_[nai];
     this->axes_[i] = lerp<DWORD, float>(get_pos_from_joyinfoex(ji, nai), l.first, l.second, -1.0f, 1.0f);
   }
 }
@@ -139,16 +136,16 @@ LegacyJoystick::LegacyJoystick(UINT joyID) : joyID_(joyID)
   auto mmr = joyGetDevCaps(this->joyID_, &jc, sjc);
   if (JOYERR_NOERROR != mmr)
     throw std::runtime_error("Cannot get joystick caps or joystick is disconnected");
-  for (auto i = static_cast<int>(NativeAxisID::first); i < static_cast<int>(NativeAxisID::num); ++i)
+  for (int i = NativeAxisID::first; i < NativeAxisID::num; ++i)
   {
-    auto const nai = static_cast<NativeAxisID>(i);
+    auto const nai = static_cast<NativeAxisID::type>(i);
     this->nativeLimits_[i] = get_limits_from_joycaps(jc, nai);
   }
 }
 
-NativeAxisID LegacyJoystick::w2n_axis_(AxisID ai)
+NativeAxisID::type LegacyJoystick::w2n_axis_(AxisID::type ai)
 {
-  static struct D { AxisID ai; NativeAxisID nai; } mapping[] = 
+  static struct D { AxisID::type ai; NativeAxisID::type nai; } mapping[] = 
   {
     { AxisID::x, NativeAxisID::x },
     { AxisID::y, NativeAxisID::y },
@@ -168,7 +165,7 @@ float JoystickAxis::get_value() const
   return this->spJoystick_->get_axis_value(this->axisID_);
 }
 
-JoystickAxis::JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID axisID)
+JoystickAxis::JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID::type axisID)
   : spJoystick_(spJoystick), axisID_(axisID)
 {
 }

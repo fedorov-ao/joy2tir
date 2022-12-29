@@ -129,27 +129,30 @@ int __stdcall NPCLIENT_NP_GetData(void *data)
 */
 
 /* Pose */
-enum class PoseMemberID : int { yaw = 0, first = yaw, pitch, roll, x, y, z, num };
-
-char const * pose_member_id_to_cstr(PoseMemberID id)
+struct PoseMemberID
 {
-  static char const * names[] = {"yaw", "pitch", "roll", "x", "y", "z", "num"};
-  auto const iid = static_cast<int>(id);
-  auto const ifirst = static_cast<int>(PoseMemberID::first);
-  auto const inum = static_cast<int>(PoseMemberID::num);
-  return (iid < ifirst || iid > inum) ? "unknown" : names[iid];
-}
+  enum type { yaw = 0, first = yaw, pitch, roll, x, y, z, num };
 
-PoseMemberID cstr_to_pose_member_id(char const * name)
-{
-  static char const * names[] = {"yaw", "pitch", "roll", "x", "y", "z", "num"};
-  for (int i = 0; i < sizeof(names)/sizeof(names[0]); ++i)
+  static type from_cstr(char const * name)
   {
-    if (strncmp(names[i], name, strlen(names[i])) == 0)
-      return static_cast<PoseMemberID>(i);
+    for (int i = 0; i < sizeof(names_)/sizeof(names_[0]); ++i)
+    {
+      if (strncmp(names_[i], name, strlen(names_[i])) == 0)
+        return static_cast<type>(i);
+    }
+    return num;
   }
-  return PoseMemberID::num;
-}
+
+  static char const * to_cstr(type id)
+  {
+    return (id < first || id > num) ? "unknown" : names_[id];
+  }
+
+private:
+  static char const * names_[num];
+};
+
+char const * PoseMemberID::names_[PoseMemberID::num] = {"yaw", "pitch", "roll", "x", "y", "z"};
 
 struct Pose
 {
@@ -182,51 +185,51 @@ public:
 
   virtual Pose make_pose() const;
 
-  void set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, limits_t const & limits);
-  void set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis);
-  void set_limits(PoseMemberID poseMemberID, limits_t const & limits);
+  void set_mapping(PoseMemberID::type poseMemberID, std::shared_ptr<Axis> const & spAxis, limits_t const & limits);
+  void set_axis(PoseMemberID::type poseMemberID, std::shared_ptr<Axis> const & spAxis);
+  void set_limits(PoseMemberID::type poseMemberID, limits_t const & limits);
 
   AxisPoseFactory();
 
 private:
-  struct AxisData { std::shared_ptr<Axis> spAxis; limits_t limits; } axes_[static_cast<int>(PoseMemberID::num)];
+  struct AxisData { std::shared_ptr<Axis> spAxis; limits_t limits; } axes_[PoseMemberID::num];
 };
 
 Pose AxisPoseFactory::make_pose() const
 {
-  auto const num = static_cast<int>(PoseMemberID::num);
+  auto const num = PoseMemberID::num;
   float v[num];
-  for (int i = static_cast<int>(PoseMemberID::first); i < num; ++i)
+  for (int i = PoseMemberID::first; i < num; ++i)
   {
     auto const & d = this->axes_[i];
     v[i] = d.spAxis ? lerp(d.spAxis->get_value(), -1.0f, 1.0f, d.limits.first, d.limits.second) : 0.0f;
   }
   return Pose (
-    v[static_cast<int>(PoseMemberID::yaw)],
-    v[static_cast<int>(PoseMemberID::pitch)],
-    v[static_cast<int>(PoseMemberID::roll)],
-    v[static_cast<int>(PoseMemberID::x)],
-    v[static_cast<int>(PoseMemberID::y)],
-    v[static_cast<int>(PoseMemberID::z)]
+    v[PoseMemberID::yaw],
+    v[PoseMemberID::pitch],
+    v[PoseMemberID::roll],
+    v[PoseMemberID::x],
+    v[PoseMemberID::y],
+    v[PoseMemberID::z]
   );
 }
 
-void AxisPoseFactory::set_mapping(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis, AxisPoseFactory::limits_t const & limits)
+void AxisPoseFactory::set_mapping(PoseMemberID::type poseMemberID, std::shared_ptr<Axis> const & spAxis, AxisPoseFactory::limits_t const & limits)
 {
-  auto & d = this->axes_[static_cast<int>(poseMemberID)];
+  auto & d = this->axes_[poseMemberID];
   d.spAxis = spAxis;
   d.limits = limits;
 }
 
-void AxisPoseFactory::set_axis(PoseMemberID poseMemberID, std::shared_ptr<Axis> const & spAxis)
+void AxisPoseFactory::set_axis(PoseMemberID::type poseMemberID, std::shared_ptr<Axis> const & spAxis)
 {
-  auto & d = this->axes_[static_cast<int>(poseMemberID)];
+  auto & d = this->axes_[poseMemberID];
   d.spAxis = spAxis;
 }
 
-void AxisPoseFactory::set_limits(PoseMemberID poseMemberID, AxisPoseFactory::limits_t const & limits)
+void AxisPoseFactory::set_limits(PoseMemberID::type poseMemberID, AxisPoseFactory::limits_t const & limits)
 {
-  auto & d = this->axes_[static_cast<int>(poseMemberID)];
+  auto & d = this->axes_[poseMemberID];
   d.limits = limits;
 }
 
@@ -489,9 +492,9 @@ Main::Main(char const * configName)
   for (auto & e : mapping)
   {
     auto const tirAxisName = e.at("tirAxis").get<std::string>();
-    auto poseMemberID = cstr_to_pose_member_id(tirAxisName.data());
+    auto poseMemberID = PoseMemberID::from_cstr(tirAxisName.data());
     auto const joyName = e.at("joystick").get<std::string>();
-    auto axisID = cstr_to_axis_id(e.at("joyAxis").get<std::string>().data());
+    auto axisID = AxisID::from_cstr(e.at("joyAxis").get<std::string>().data());
     auto limits = AxisPoseFactory::limits_t(-1.0f, 1.0f);
     if (e.contains("limits"))
     {
