@@ -457,7 +457,7 @@ Main::Main(char const * configName)
     nlohmann::json const tirDataFieldNames = config.at(tirDataFieldsName);
     tirDataFields = 0;
     for (auto const & n : tirDataFieldNames)
-      tirDataFields |= TIRData::from_cstr(n.get<std::string>().data());
+      tirDataFields |= TIRData::from_cstr(n.get<std::string>().c_str());
     log_message("TIR data fields to be filled: ", tirDataFieldNames, " (", tirDataFields, ")");
   }
   tirDataSetter_.set_data(tirDataFields);
@@ -488,30 +488,36 @@ Main::Main(char const * configName)
   }
 
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
-  auto & mapping = config.at("mapping");
-  for (auto & e : mapping)
+  auto & mappings = config.at("mapping");
+  for (auto & m : mappings)
   {
-    auto const tirAxisName = e.at("tirAxis").get<std::string>();
-    auto poseMemberID = PoseMemberID::from_cstr(tirAxisName.data());
-    auto const joyName = e.at("joystick").get<std::string>();
-    auto axisID = AxisID::from_cstr(e.at("joyAxis").get<std::string>().data());
-    auto limits = AxisPoseFactory::limits_t(-1.0f, 1.0f);
-    if (e.contains("limits"))
-    {
-      auto const & l = e.at("limits");
-      limits.first = l[0].get<float>();
-      limits.second = l[1].get<float>();
-    }
+    try {
+      auto const tirAxisName = m.at("tirAxis").get<std::string>();
+      auto poseMemberID = PoseMemberID::from_cstr(tirAxisName.c_str());
+      auto const joyName = m.at("joystick").get<std::string>();
+      auto axisID = AxisID::from_cstr(m.at("joyAxis").get<std::string>().c_str());
+      auto limits = AxisPoseFactory::limits_t(-1.0f, 1.0f);
+      if (m.contains("limits"))
+      {
+        auto const & l = m.at("limits");
+        limits.first = l[0].get<float>();
+        limits.second = l[1].get<float>();
+      }
 
-    auto itJoystick = joysticks_.find(joyName);
-    if (joysticks_.end() == itJoystick)
-    {
-      log_message("Could not create mapping for TIR axis '", tirAxisName, "' (joystick '", joyName, "' was not created)");
-      continue;
-    }
+      auto itJoystick = joysticks_.find(joyName);
+      if (joysticks_.end() == itJoystick)
+      {
+        log_message("Could not create mapping for TIR axis '", tirAxisName, "' (joystick '", joyName, "' was not created)");
+        continue;
+      }
 
-    auto spAxis = std::make_shared<JoystickAxis>(itJoystick->second, axisID);
-    spPoseFactory->set_mapping(poseMemberID, spAxis, limits);
+      auto spAxis = std::make_shared<JoystickAxis>(itJoystick->second, axisID);
+      spPoseFactory->set_mapping(poseMemberID, spAxis, limits);
+    }
+    catch (std::exception & e)
+    {
+      log_message("Could not create mapping ", m, " (", e.what(), ")");
+    }
   }
   spPoseFactory_ = spPoseFactory;
 }
