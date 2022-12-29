@@ -594,8 +594,6 @@ int __stdcall NP_GetData(void *data)
 {
   //log_message("NP_GetData");
 
-  memset(data, 0, sizeof(tir_data));
-
   handle(data);
 
   return 0;
