@@ -12,7 +12,7 @@
 
 #include <hidusage.h>
 
-int list_winapi_joysticks()
+int list_legacy_joysticks()
 {
   UINT numJoysticks = joyGetNumDevs();
   std::cout << "Number of joystics: " << numJoysticks << std::endl;
@@ -50,7 +50,7 @@ int list_winapi_joysticks()
   return 0;
 }
 
-int print_winapi_joystick(int joyID)
+int print_legacy_joystick(int joyID)
 {
   auto j = WinApiJoystick(joyID);
   std::cout << std::fixed << std::setprecision(2) << std::showpos;
@@ -301,14 +301,14 @@ int main(int argc, char** argv)
   std::string mode (argv[1]);
   if (mode == "list")
   {
-    return list_winapi_joysticks();
+    return list_legacy_joysticks();
   }
   else if (mode == "print")
   {
     std::stringstream ss (argv[2]);
     int joyID;
     ss >> joyID;
-    return print_winapi_joystick(joyID);
+    return print_legacy_joystick(joyID);
   }
   else if (mode == "list_raw")
   {
