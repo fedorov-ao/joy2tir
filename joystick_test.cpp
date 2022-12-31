@@ -1,6 +1,7 @@
 #include "joystick.hpp"
 #include "logging.hpp"
 
+#include <type_traits>
 #include <vector>
 #include <map>
 #include <functional>
@@ -289,9 +290,9 @@ std::ostream & operator<<(std::ostream & os, RAWINPUT const & ri)
 /* DirectInput8 */
 size_t guid2cstr(char * buf, size_t n, REFGUID rguid)
 {
-  char const * fmt = "%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX"; 
+  char const * fmt = "%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX";
   return snprintf(buf, n, fmt,
-    rguid.Data1, rguid.Data2, rguid.Data3, 
+    rguid.Data1, rguid.Data2, rguid.Data3,
     rguid.Data4[0], rguid.Data4[1], rguid.Data4[2], rguid.Data4[3],
     rguid.Data4[4], rguid.Data4[5], rguid.Data4[6], rguid.Data4[7]);
 }
@@ -323,10 +324,10 @@ char const * preset_guid2cstr(REFGUID rguid)
 
 GUID cstr2guid(char const * cstr)
 {
-  char const * fmt = "%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX"; 
+  char const * fmt = "%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX";
   GUID guid;
   sscanf(cstr, fmt,
-    &guid.Data1, &guid.Data2, &guid.Data3, 
+    &guid.Data1, &guid.Data2, &guid.Data3,
     &guid.Data4[0], &guid.Data4[1], &guid.Data4[2], &guid.Data4[3],
     &guid.Data4[4], &guid.Data4[5], &guid.Data4[6], &guid.Data4[7]);
   return guid;
@@ -379,26 +380,95 @@ std::string dideviceinstancea2str(DIDEVICEINSTANCEA const & ddi)
   return std::string(buf);
 }
 
+std::string didevcaps2str(DIDEVCAPS const & caps)
+{
+  static char const * fmt = "size: 0x%x; flags: 0x%x; dev type: 0x%x; axes: %d; buttons: %d; pows: %d; ff sample period: %d; ff min time resolution: %d; firmware revision: 0x%x; hardware revision: 0x%x; ff driver version: 0x%x";
+  char buf[512] = {0};
+  snprintf(buf, sizeof(buf), fmt, caps.dwSize, caps.dwFlags, caps.dwDevType, caps.dwAxes, caps.dwButtons, caps.dwPOVs, caps.dwFFSamplePeriod, caps.dwFFMinTimeResolution, caps.dwFirmwareRevision, caps.dwHardwareRevision, caps.dwFFDriverVersion);
+  return std::string(buf);
+}
+
 BOOL __stdcall enum_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
 {
-  std::cout << dideviceinstancea2str(*lpddi) << std::endl; 
+  std::cout << dideviceinstancea2str(*lpddi) << std::endl;
   return DIENUM_CONTINUE;
 }
 
-void test_dinput()
+BOOL __stdcall fill_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
+{
+  using devs_t = std::vector<DIDEVICEINSTANCEA>;
+  assert(pvRef);
+  auto pDevs = reinterpret_cast<devs_t*>(pvRef);
+  pDevs->push_back(*lpddi);
+  return DIENUM_CONTINUE;
+}
+
+std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags)
+{
+  std::vector<DIDEVICEINSTANCEA> devs;
+  auto result = pdi->EnumDevices(devType, fill_devices_cb, &devs, flags);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to enum devices");
+  return devs;
+}
+
+LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DIDEVICEINSTANCEA> const & devs, char const * name)
+{
+  auto itDev = std::find_if(devs.begin(), devs.end(),
+    [&name](std::remove_reference<decltype(devs)>::type::value_type const & v) { return strcmp(name, v.tszInstanceName) == 0; }
+  );
+  if (itDev == devs.end())
+    throw std::runtime_error("Cannot find device");
+  auto const & instanceGuid = itDev->guidInstance;
+  LPDIRECTINPUTDEVICE8A pdid;
+  auto result = pdi->CreateDevice(instanceGuid, &pdid, NULL);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to create device");
+  return pdid;
+};
+
+void test_dinput(int argc, char** argv)
 {
   auto const hInstance = GetModuleHandle(NULL);
   auto const dinputVersion = 0x800;
-  IDirectInput8 * pdi = NULL;
+  LPDIRECTINPUT8A pdi = NULL;
   std::cout << "Creating dinput8" << std::endl;
   auto result = DirectInput8Create(hInstance, dinputVersion, IID_IDirectInput8, reinterpret_cast<void**>(&pdi), NULL);
   if (FAILED(result))
     throw std::runtime_error("Failed to create DirectInput8");
   assert(pdi);
-  std::cout << "Enumerating devices" << std::endl;
-  result = pdi->EnumDevices(DI8DEVCLASS_ALL, enum_devices_cb, NULL, DIEDFL_ALLDEVICES); 
-  if (FAILED(result))
-    throw std::runtime_error("Failed to enum devices");
+  if (argc <= 0)
+  {
+    std::cout << "modes: enum" << std::endl;
+    return;
+  }
+  auto const mode = argv[0];
+  if (strcmp(mode, "enum") == 0)
+  {
+    std::cout << "Enumerating devices" << std::endl;
+    auto devs = get_devices(pdi, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
+    for (auto const & dev : devs)
+      std::cout << dideviceinstancea2str(dev) << std::endl;
+  }
+  else if (strcmp(mode, "create") == 0)
+  {
+    auto const name = argv[1];
+    std::cout << "Creating device " << name << std::endl;
+    auto devs = get_devices(pdi, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
+    auto pdid = create_device_by_name(pdi, devs, name);
+    std::cout << "Device created" << std::endl;
+    DIDEVCAPS caps;
+    caps.dwSize = sizeof(caps);
+    auto result = pdid->GetCapabilities(&caps);
+    if (FAILED(result))
+      throw std::runtime_error("Failed to get device caps");
+    std::cout << "Caps: " << didevcaps2str(caps) << std::endl;
+  }
+  else
+  {
+    std::cout << "Unknown mode: " << mode << std::endl;
+    return;
+  }
 }
 
 int main(int argc, char** argv)
@@ -465,7 +535,9 @@ int main(int argc, char** argv)
   }
   else if (mode == "test_dinput")
   {
-    test_dinput();
+    argc -= 2;
+    argv += 2;
+    test_dinput(argc, argv);
     return 0;
   }
   else
