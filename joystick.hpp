@@ -2,9 +2,11 @@
 #define JOYSTICK_HPP
 
 #include <string>
+#include <vector>
 #include <memory> //shared ptr
 
-#include <windows.h> //joystick API
+#include <windows.h> //legacy joystick API
+#include <dinput.h> //DirectInput API
 
 template <typename F, typename T>
 T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
@@ -20,7 +22,7 @@ struct LegacyAxisID { enum type { x = 0, first = x, y, z, r, u, v, num }; };
 
 struct AxisID
 {
-  enum type { x = 0, first = x, y, z, rx, ry, rz, num };
+  enum type { x = 0, first = x, y, z, rx, ry, rz, u, v, num };
 
   static char const * to_cstr(type id);
   static type from_cstr(char const * name);
@@ -68,6 +70,43 @@ private:
   UINT joyID_;
   std::pair<UINT, UINT> nativeLimits_[LegacyAxisID::num];
   float axes_[AxisID::num];
+};
+
+std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);
+LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID);
+LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DIDEVICEINSTANCEA> const & devs, char const * name);
+
+class DInput8Joystick : public Joystick, public Updated
+{
+public:
+  virtual float get_axis_value(AxisID::type axisID) const override;
+  virtual void update() override;
+
+  DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid);
+
+private:
+  static AxisID::type n2w_axis_(DWORD nai);
+  static BOOL __stdcall fill_limits_cb_(LPCDIDEVICEOBJECTINSTANCE lpddoi, LPVOID pvRef);
+
+  static DWORD const buffSize_ = 16;
+  LPDIRECTINPUTDEVICE8A pdid_;
+  std::pair<LONG, LONG> nativeLimits_[AxisID::num];
+  float axes_[AxisID::num];
+};
+
+class DInput8JoystickManager : public Updated
+{
+public:
+  std::shared_ptr<DInput8Joystick> make_joystick_by_name(char const * name);
+  std::shared_ptr<DInput8Joystick> make_joystick_by_guid(REFGUID instanceGUID);
+  virtual void update() override;
+
+  DInput8JoystickManager();
+
+private:
+  LPDIRECTINPUT8A pdi_;
+  std::vector<std::shared_ptr<DInput8Joystick> > joysticks_;
+  std::vector<DIDEVICEINSTANCEA> devs_;
 };
 
 class Axis

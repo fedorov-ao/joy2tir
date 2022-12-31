@@ -4,16 +4,15 @@
   "tirEraseData" : true,
   "joysticks" :
   {
-    "angles" : { "type" : "legacy", "id" : 3 },
-    "position" : { "type" : "legacy", "id" : 2 }
+    "head" : { "type" : "di8", "name" : "head" }
   },
   "mapping" :
   [
-    { "tirAxis" : "yaw", "joystick" : "angles", "joyAxis" : "x", "limits" : [-170.0, 170.0] },
-    { "tirAxis" : "pitch", "joystick" : "angles", "joyAxis" : "y", "limits" : [-90.0, 90.0] },
-    { "tirAxis" : "roll", "joystick" : "angles", "joyAxis" : "z", "limits" : [-180.0, 180.0] },
-    { "tirAxis" : "x", "joystick" : "position", "joyAxis" : "x", "limits" : [-256.0, 256.0] },
-    { "tirAxis" : "y", "joystick" : "position", "joyAxis" : "y", "limits" : [-256.0, 256.0] },
-    { "tirAxis" : "z", "joystick" : "position", "joyAxis" : "z", "limits" : [-256.0, 256.0] }
+    { "tirAxis" : "yaw", "joystick" : "head", "joyAxis" : "rx", "limits" : [-170.0, 170.0] },
+    { "tirAxis" : "pitch", "joystick" : "head", "joyAxis" : "ry", "limits" : [-90.0, 90.0] },
+    { "tirAxis" : "roll", "joystick" : "head", "joyAxis" : "rz", "limits" : [-180.0, 180.0] },
+    { "tirAxis" : "x", "joystick" : "head", "joyAxis" : "x", "limits" : [-256.0, 256.0] },
+    { "tirAxis" : "y", "joystick" : "head", "joyAxis" : "y", "limits" : [-256.0, 256.0] },
+    { "tirAxis" : "z", "joystick" : "head", "joyAxis" : "z", "limits" : [-256.0, 256.0] }
   ]
 }

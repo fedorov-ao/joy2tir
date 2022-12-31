@@ -1,6 +1,7 @@
 #include "NPClient.hpp"
 #include "logging.hpp"
 #include "joystick.hpp"
+#include "util.hpp"
 #include "nlohmann/json.hpp"
 
 #include <vector>
@@ -436,6 +437,7 @@ public:
 private:
   std::vector<std::shared_ptr<Updated> > updated_;
   std::map<std::string, std::shared_ptr<Joystick> > joysticks_;
+  std::shared_ptr<DInput8JoystickManager> spDI8JoyManager_;
   std::shared_ptr<PoseFactory> spPoseFactory_;
   TIRDataSetter tirDataSetter_;
 };
@@ -465,6 +467,9 @@ Main::Main(char const * configName)
   tirDataSetter_.set_erase(get_d(config, "tirEraseData", true));
   tirDataSetter_.set_frame(get_d(config, "tirStartFrame", 0));
 
+  spDI8JoyManager_ = std::make_shared<DInput8JoystickManager>();
+  updated_.push_back(spDI8JoyManager_);
+
   auto const & joysticks = config.at("joysticks");
   for (auto const & j : joysticks.items())
   {
@@ -478,6 +483,30 @@ Main::Main(char const * configName)
         auto const spj = std::make_shared<LegacyJoystick>(joyID);
         joysticks_[name] = spj;
         updated_.push_back(spj);
+      } catch (std::runtime_error & e)
+      {
+        log_message("Could not create joystick '", name, "' (", e.what(), ")");
+      }
+    }
+    else if (type == "di8")
+    {
+      assert(spDI8JoyManager_);
+      try {
+        std::shared_ptr<Joystick> spj;
+        auto const joyNameStr = get_d<std::string>(cfg, "name", "");
+        if (joyNameStr.size())
+          spj = spDI8JoyManager_->make_joystick_by_name(joyNameStr.c_str());
+        else
+        {
+          auto const joyGuidStr = get_d<std::string>(cfg, "guid", "");
+          if (joyGuidStr.size())
+          {
+            spj = spDI8JoyManager_->make_joystick_by_guid(str2guid(joyGuidStr.c_str()));
+          }
+          else
+            throw std::runtime_error("Need to specify either name or guid");
+        }
+        joysticks_[name] = spj;
       } catch (std::runtime_error & e)
       {
         log_message("Could not create joystick '", name, "' (", e.what(), ")");

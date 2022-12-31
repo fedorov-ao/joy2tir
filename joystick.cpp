@@ -1,10 +1,13 @@
 #include "joystick.hpp"
 #include "logging.hpp"
 
+#include <iostream>
 #include <sstream>
+#include <algorithm>
+#include <cassert>
 
 /* Joysticks */
-char const * AxisID::names_[AxisID::num] = {"x", "y", "z", "rx", "ry", "rz"};
+char const * AxisID::names_[AxisID::num] = {"x", "y", "z", "rx", "ry", "rz", "u", "v"};
 
 char const * AxisID::to_cstr(AxisID::type id)
 {
@@ -158,6 +161,198 @@ LegacyAxisID::type LegacyJoystick::w2n_axis_(AxisID::type ai)
     if (d.ai == ai)
       return d.nai;
   return LegacyAxisID::num;
+}
+
+char const * dierr_to_cstr(HRESULT result)
+{
+  char const * msg =
+    result == DIERR_INPUTLOST ? "DIERR_INPUTLOST" :
+    result == DIERR_INVALIDPARAM ? "DIERR_INVALIDPARAM" :
+    result == DIERR_NOTACQUIRED ? "DIERR_NOTACQUIRED" :
+    result == DIERR_NOTBUFFERED ? "DIERR_NOTBUFFERED" :
+    result == DIERR_NOTINITIALIZED ? "DIERR_NOTINITIALIZED" : "UNKNOWN";
+  return msg;
+}
+
+float DInput8Joystick::get_axis_value(AxisID::type axisID) const
+{
+  return this->axes_[axisID];
+}
+
+void DInput8Joystick::update()
+{
+  DIDEVICEOBJECTDATA data[buffSize_];
+  DWORD inOut = buffSize_;
+  while (true)
+  {
+    auto const result = pdid_->GetDeviceData(sizeof(DIDEVICEOBJECTDATA), data, &inOut, 0);
+    if ((DI_OK != result) && (DI_BUFFEROVERFLOW != result))
+    {
+      std::stringstream ss;
+      ss << "Failed to get device data: " << dierr_to_cstr(result);
+      throw std::runtime_error(ss.str().c_str());
+    }
+    if (inOut == 0)
+      break;
+    //TODO Process only last event for each axis?
+    for (auto i = 0; i < inOut; ++i)
+    {
+      auto const & d = data[i];
+      auto const ai = this->n2w_axis_(d.dwOfs);
+      if (ai == AxisID::num)
+        continue;
+      auto const & l = this->nativeLimits_[ai];
+      this->axes_[ai] = lerp<DWORD, float>(d.dwData, l.first, l.second, -1.0f, 1.0f);
+    }
+    inOut = buffSize_;
+  }
+}
+
+DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid)
+{
+  memset(&this->axes_, 0, sizeof(this->axes_));
+  if (pdid == NULL)
+    throw std::runtime_error("Device pointer is NULL");
+  auto result = pdid_->SetDataFormat(&c_dfDIJoystick);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to set data format");
+  DIPROPDWORD dipdBuffSize;
+  dipdBuffSize.diph.dwSize = sizeof(DIPROPDWORD);
+  dipdBuffSize.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+  dipdBuffSize.diph.dwObj = 0;
+  dipdBuffSize.diph.dwHow = DIPH_DEVICE;
+  dipdBuffSize.dwData = buffSize_;
+  result = pdid_->SetProperty(DIPROP_BUFFERSIZE, &dipdBuffSize.diph);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to set buffer size");
+  DIPROPDWORD dipdAxisMode;
+  dipdAxisMode.diph.dwSize = sizeof(DIPROPDWORD);
+  dipdAxisMode.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+  dipdAxisMode.diph.dwObj = 0;
+  dipdAxisMode.diph.dwHow = DIPH_DEVICE;
+  dipdAxisMode.dwData = DIPROPAXISMODE_ABS;
+  result = pdid_->SetProperty(DIPROP_AXISMODE, &dipdAxisMode.diph);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to set axis mode to absolute");
+  result = pdid_->EnumObjects(fill_limits_cb_, this, DIDFT_ABSAXIS);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to fill limits");
+  result = pdid_->Acquire();
+  if (FAILED(result))
+    throw std::runtime_error("Failed to acquire");
+}
+
+AxisID::type DInput8Joystick::n2w_axis_(DWORD nai)
+{
+  static struct D { AxisID::type ai; DWORD nai; } mapping[] = 
+  {
+    { AxisID::x, DIJOFS_X },
+    { AxisID::y, DIJOFS_Y },
+    { AxisID::z, DIJOFS_Z },
+    { AxisID::rx, DIJOFS_RX },
+    { AxisID::ry, DIJOFS_RY },
+    { AxisID::rz, DIJOFS_RZ },
+    { AxisID::u, DIJOFS_SLIDER(0) },
+    { AxisID::v, DIJOFS_SLIDER(1) }
+  };
+  for (auto const & d : mapping)
+    if (d.nai == nai)
+      return d.ai;
+  return AxisID::num;
+}
+
+BOOL __stdcall DInput8Joystick::fill_limits_cb_(LPCDIDEVICEOBJECTINSTANCE lpddoi, LPVOID pvRef)
+{
+  auto * that = reinterpret_cast<DInput8Joystick*>(pvRef);
+  if ((lpddoi->dwType & DIDFT_ABSAXIS) != 0)
+  {
+    DIPROPRANGE range;
+    range.diph.dwSize = sizeof(DIPROPRANGE);
+    range.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+    range.diph.dwHow = DIPH_BYOFFSET;
+    auto const dwOfs = lpddoi->dwOfs;
+    range.diph.dwObj = dwOfs;
+    auto ai = n2w_axis_(dwOfs);
+    if (ai != AxisID::num && that->pdid_->GetProperty(DIPROP_RANGE, &range.diph) == DI_OK)
+    {
+      auto & nl = that->nativeLimits_[ai];
+      nl.first = range.lMin;
+      nl.second = range.lMax;
+    }
+  }
+  return DIENUM_CONTINUE;
+}
+
+BOOL __stdcall fill_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
+{
+  using devs_t = std::vector<DIDEVICEINSTANCEA>;
+  assert(pvRef);
+  auto pDevs = reinterpret_cast<devs_t*>(pvRef);
+  pDevs->push_back(*lpddi);
+  return DIENUM_CONTINUE;
+}
+
+std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags)
+{
+  std::vector<DIDEVICEINSTANCEA> devs;
+  auto result = pdi->EnumDevices(devType, fill_devices_cb, &devs, flags);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to enum devices");
+  return devs;
+}
+
+LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID)
+{
+  LPDIRECTINPUTDEVICE8A pdid;
+  auto result = pdi->CreateDevice(instanceGUID, &pdid, NULL);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to create device");
+  return pdid;
+};
+
+LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DIDEVICEINSTANCEA> const & devs, char const * name)
+{
+  auto itDev = std::find_if(devs.begin(), devs.end(),
+    [&name](std::remove_reference<decltype(devs)>::type::value_type const & v) { return strcmp(name, v.tszInstanceName) == 0; }
+  );
+  if (itDev == devs.end())
+    throw std::runtime_error("Cannot find device");
+  auto const & instanceGuid = itDev->guidInstance;
+  return create_device_by_guid(pdi, instanceGuid);
+};
+
+
+std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_name(char const * name)
+{
+  auto pdid = create_device_by_name(pdi_, devs_, name);
+  auto spJoystick = std::make_shared<DInput8Joystick>(pdid);
+  joysticks_.push_back(spJoystick);
+  return spJoystick;
+}
+
+std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_guid(REFGUID instanceGUID)
+{
+  auto pdid = create_device_by_guid(pdi_, instanceGUID);
+  auto spJoystick = std::make_shared<DInput8Joystick>(pdid);
+  joysticks_.push_back(spJoystick);
+  return spJoystick;
+}
+
+void DInput8JoystickManager::update()
+{
+  for (auto & j : joysticks_)
+    j->update();
+}
+
+DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), devs_()
+{
+  auto const hInstance = GetModuleHandle(NULL);
+  auto const dinputVersion = 0x800;
+  auto result = DirectInput8Create(hInstance, dinputVersion, IID_IDirectInput8, reinterpret_cast<void**>(&pdi_), NULL);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to create DirectInput8");
+  assert(pdi_);
+  devs_ = get_devices(pdi_, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
 }
 
 float JoystickAxis::get_value() const
