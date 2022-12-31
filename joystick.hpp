@@ -16,7 +16,7 @@ T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
 }
 
 /* Joysticks */
-struct NativeAxisID { enum type { x = 0, first = x, y, z, r, u, v, num }; };
+struct LegacyAxisID { enum type { x = 0, first = x, y, z, r, u, v, num }; };
 
 struct AxisID
 {
@@ -30,9 +30,9 @@ private:
 };
 
 
-std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, NativeAxisID::type id);
+std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, LegacyAxisID::type id);
 
-DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, NativeAxisID::type id);
+DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, LegacyAxisID::type id);
 
 std::string describe_joycaps(JOYCAPS& jc);
 
@@ -63,10 +63,10 @@ public:
   LegacyJoystick(UINT joyID);
 
 private:
-  static NativeAxisID::type w2n_axis_(AxisID::type ai);
+  static LegacyAxisID::type w2n_axis_(AxisID::type ai);
 
   UINT joyID_;
-  std::pair<UINT, UINT> nativeLimits_[NativeAxisID::num];
+  std::pair<UINT, UINT> nativeLimits_[LegacyAxisID::num];
   float axes_[AxisID::num];
 };
 
