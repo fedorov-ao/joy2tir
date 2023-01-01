@@ -9,6 +9,7 @@
 #include <windows.h> //legacy joystick API
 #include <dinput.h> //DirectInput API
 
+/* General */
 template <typename F, typename T>
 T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
 {
@@ -18,9 +19,7 @@ T lerp(F const & fv, F const & fb, F const & fe, T const & tb, T const & te)
   return a*fv + b;
 }
 
-/* Joysticks */
-struct LegacyAxisID { enum type { x = 0, first = x, y, z, r, u, v, num }; };
-
+/* API-independent */
 struct AxisID
 {
   enum type { x = 0, first = x, y, z, rx, ry, rz, u, v, num };
@@ -31,14 +30,6 @@ struct AxisID
 private:
   static std::array<char const *, AxisID::num> names_;
 };
-
-std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, LegacyAxisID::type id);
-
-DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, LegacyAxisID::type id);
-
-std::string describe_joycaps(JOYCAPS const & jc);
-
-std::string describe_joyinfoex(JOYINFOEX const & ji);
 
 class Joystick
 {
@@ -55,6 +46,44 @@ public:
 
   virtual ~Updated() =default;
 };
+
+class Axis
+{
+public:
+  virtual float get_value() const =0;
+
+  virtual ~Axis() =default;
+};
+
+class JoystickAxis : public Axis
+{
+public:
+  virtual float get_value() const;
+
+  JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID::type axisID);
+
+private:
+  std::shared_ptr<Joystick> spJoystick_;
+  AxisID::type axisID_;
+};
+
+/* Legacy */
+struct LegacyAxisID {
+  enum type { x = 0, first = x, y, z, r, u, v, num };
+};
+
+std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, LegacyAxisID::type id);
+DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, LegacyAxisID::type id);
+std::string describe_joycaps(JOYCAPS const & jc);
+std::string describe_joyinfoex(JOYINFOEX const & ji);
+
+struct LegacyJoystickInfo
+{
+  JOYCAPS joyCaps;
+  JOYINFOEX joyInfo;
+};
+
+std::vector<LegacyJoystickInfo> get_legacy_joysticks_info();
 
 /* Legacy joystick does not support device reconnects (only under Wine?). */
 class LegacyJoystick : public Joystick, public Updated
@@ -75,6 +104,7 @@ private:
   bool ready_;
 };
 
+/* DirectInput8 */
 std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);
 LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID);
 LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DIDEVICEINSTANCEA> const & devs, char const * name);
@@ -89,7 +119,7 @@ public:
 
 private:
   static AxisID::type n2w_axis_(DWORD nai);
-  static BOOL __stdcall fill_limits_cb_(LPCDIDEVICEOBJECTINSTANCE lpddoi, LPVOID pvRef);
+  static BOOL WINAPI fill_limits_cb_(LPCDIDEVICEOBJECTINSTANCE lpddoi, LPVOID pvRef);
   void init_();
 
   static DWORD const buffSize_ = 16;
@@ -113,26 +143,6 @@ private:
   LPDIRECTINPUT8A pdi_;
   std::vector<std::shared_ptr<DInput8Joystick> > joysticks_;
   std::vector<DIDEVICEINSTANCEA> devs_;
-};
-
-class Axis
-{
-public:
-  virtual float get_value() const =0;
-
-  virtual ~Axis() =default;
-};
-
-class JoystickAxis : public Axis
-{
-public:
-  virtual float get_value() const;
-
-  JoystickAxis(std::shared_ptr<Joystick> const & spJoystick, AxisID::type axisID);
-
-private:
-  std::shared_ptr<Joystick> spJoystick_;
-  AxisID::type axisID_;
 };
 
 #endif
