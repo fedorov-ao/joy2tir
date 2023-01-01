@@ -490,7 +490,7 @@ Main::Main(char const * configName)
       log_message("joystick ", joyID, ": info: ", describe_joyinfoex(info.joyInfo), "; caps: ", describe_joycaps(info.joyCaps));
     }
     log_message("DirectInput8 joysticks");
-    for (auto const & d : spDI8JoyManager_->get_joysticks_list())
+    for (auto const & d : spDI8JoyManager_->get_joysticks_info())
       log_message(dideviceinstancea_to_str(d));
   }
 

@@ -423,7 +423,7 @@ std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_guid(R
   return spJoystick;
 }
 
-std::vector<DIDEVICEINSTANCEA> const & DInput8JoystickManager::get_joysticks_list() const
+std::vector<DIDEVICEINSTANCEA> const & DInput8JoystickManager::get_joysticks_info() const
 {
   return devs_;
 }
