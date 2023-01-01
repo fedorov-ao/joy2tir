@@ -423,11 +423,11 @@ Main::Main(char const * configName)
     for (decltype(legacyJoysticksInfo)::size_type joyID = 0; joyID < legacyJoysticksInfo.size(); ++joyID)
     {
       auto const & info = legacyJoysticksInfo.at(joyID);
-      log_message("joystick ", joyID, ": info: ", describe_joyinfoex(info.joyInfo), "; caps: ", describe_joycaps(info.joyCaps));
+      log_message("id: ", joyID, ": [info: ", describe_joyinfoex(info.joyInfo), "]; caps: [", describe_joycaps(info.joyCaps), "]");
     }
     log_message("DirectInput8 joysticks");
     for (auto const & d : spDI8JoyManager_->get_joysticks_info())
-      log_message(dideviceinstancea_to_str(d.info));
+      log_message("info: [", dideviceinstancea_to_str(d.info), "]; caps: [", didevcaps_to_str(d.caps), "]");
   }
 
   auto const tirDataFieldsName = "tirDataFields";

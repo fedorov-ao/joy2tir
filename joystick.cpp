@@ -1,4 +1,5 @@
 #include "joystick.hpp"
+#include "util.hpp"
 #include "logging.hpp"
 
 #include <iostream>
@@ -282,25 +283,63 @@ char const * dierr_to_cstr(HRESULT result)
   }
 }
 
-BOOL WINAPI fill_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
+std::string dideviceinstancea_to_str(DIDEVICEINSTANCEA const & ddi)
 {
-  using infos_t = std::vector<DI8DeviceInfo>;
+  static char const * fmt = "instance GUID: %s; product GUID: %s; instance name: %s; product name: %s; type: 0x%x; usage page: 0x%x; usage: 0x%x";
+  char buf[512] = {0};
+  size_t const guidBufSize = 37;
+  char guidInstanceCStr[guidBufSize] = {0};
+  guid2cstr(guidInstanceCStr, guidBufSize, ddi.guidInstance);
+  char guidProductCStr[guidBufSize] = {0};
+  guid2cstr(guidProductCStr, guidBufSize, ddi.guidProduct);
+  snprintf(buf, sizeof(buf), fmt, guidInstanceCStr, guidProductCStr, ddi.tszInstanceName, ddi.tszProductName, ddi.dwDevType, ddi.wUsagePage, ddi.wUsage);
+  return std::string(buf);
+}
+
+std::string didevcaps_to_str(DIDEVCAPS const & caps)
+{
+  static char const * fmt = "size: 0x%x; flags: 0x%x; dev type: 0x%x; axes: %d; buttons: %d; pows: %d; ff sample period: %d; ff min time resolution: %d; firmware revision: 0x%x; hardware revision: 0x%x; ff driver version: 0x%x";
+  char buf[512] = {0};
+  snprintf(buf, sizeof(buf), fmt, caps.dwSize, caps.dwFlags, caps.dwDevType, caps.dwAxes, caps.dwButtons, caps.dwPOVs, caps.dwFFSamplePeriod, caps.dwFFMinTimeResolution, caps.dwFirmwareRevision, caps.dwHardwareRevision, caps.dwFFDriverVersion);
+  return std::string(buf);
+}
+
+struct FillDevicesCBData
+{
+  LPDIRECTINPUT8A pdi;
+  std::vector<DI8DeviceInfo> infos;
+};
+
+BOOL WINAPI fill_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
+try {
   assert(pvRef);
-  auto pInfos = reinterpret_cast<infos_t*>(pvRef);
+  auto pData = reinterpret_cast<FillDevicesCBData*>(pvRef);
   DI8DeviceInfo info;
   info.info = *lpddi;
   //TODO Save device caps
-  pInfos->push_back(info);
+  auto pdid = create_device_by_guid(pData->pdi, lpddi->guidInstance);
+  info.caps.dwSize = sizeof(info.caps);
+  auto result = pdid->GetCapabilities(&info.caps);
+  if (FAILED(result))
+    log_message("Failed to get device caps: ", dierr_to_cstr(result));
+  else
+    pData->infos.push_back(info);
+  pdid->Release();
   return DIENUM_CONTINUE;
+} catch (std::exception & e)
+{
+  log_message(e.what());
+  return DIENUM_STOP;
 }
 
 std::vector<DI8DeviceInfo> get_di8_devices_info(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags)
 {
-  std::vector<DI8DeviceInfo> infos;
-  auto result = pdi->EnumDevices(devType, fill_devices_cb, &infos, flags);
+  FillDevicesCBData data;
+  data.pdi = pdi;
+  auto result = pdi->EnumDevices(devType, fill_devices_cb, &data, flags);
   if (FAILED(result))
     throw std::runtime_error("Failed to enum devices");
-  return infos;
+  return data.infos;
 }
 
 LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID)

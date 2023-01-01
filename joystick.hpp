@@ -108,9 +108,12 @@ private:
 struct DI8DeviceInfo
 {
   DIDEVICEINSTANCEA info;
+  DIDEVCAPS caps;
 };
 
 std::vector<DI8DeviceInfo> get_di8_devices_info(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);
+std::string dideviceinstancea_to_str(DIDEVICEINSTANCEA const & ddi);
+std::string didevcaps_to_str(DIDEVCAPS const & caps);
 LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID);
 LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8DeviceInfo> const & devs, char const * name);
 
