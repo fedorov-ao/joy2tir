@@ -56,6 +56,7 @@ public:
   virtual ~Updated() =default;
 };
 
+/* Legacy joystick does not support device reconnects (only under Wine?). */
 class LegacyJoystick : public Joystick, public Updated
 {
 public:
@@ -66,10 +67,12 @@ public:
 
 private:
   static LegacyAxisID::type w2n_axis_(AxisID::type ai);
+  void init_();
 
   UINT joyID_;
   std::array<std::pair<UINT, UINT>, LegacyAxisID::num> nativeLimits_;
   std::array<float, AxisID::num> axes_;
+  bool ready_;
 };
 
 std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);

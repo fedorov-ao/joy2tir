@@ -24,6 +24,39 @@ AxisID::type AxisID::from_cstr(char const * name)
   return num;
 }
 
+char const * mmsyserr_to_cstr(MMRESULT result)
+{
+  switch(result)
+  {
+    case JOYERR_PARMS: return "JOYERR_PARMS";
+    case JOYERR_NOCANDO: return "JOYERR_NOCANDO";
+    case JOYERR_UNPLUGGED: return "JOYERR_UNPLUGGED";
+    case MMSYSERR_NOERROR: return "MMSYSERR_NOERROR";
+    case MMSYSERR_ERROR: return "MMSYSERR_ERROR";
+    case MMSYSERR_BADDEVICEID: return "MMSYSERR_BADDEVICEID";
+    case MMSYSERR_NOTENABLED: return "MMSYSERR_NOTENABLED";
+    case MMSYSERR_ALLOCATED: return "MMSYSERR_ALLOCATED";
+    case MMSYSERR_INVALHANDLE: return "MMSYSERR_INVALHANDLE";
+    case MMSYSERR_NODRIVER: return "MMSYSERR_NODRIVER";
+    case MMSYSERR_NOMEM: return "MMSYSERR_NOMEM";
+    case MMSYSERR_NOTSUPPORTED: return "MMSYSERR_NOTSUPPORTED";
+    case MMSYSERR_BADERRNUM: return "MMSYSERR_BADERRNUM";
+    case MMSYSERR_INVALFLAG: return "MMSYSERR_INVALFLAG";
+    case MMSYSERR_INVALPARAM: return "MMSYSERR_INVALPARAM";
+    case MMSYSERR_HANDLEBUSY: return "MMSYSERR_HANDLEBUSY";
+    case MMSYSERR_INVALIDALIAS: return "MMSYSERR_INVALIDALIAS";
+    case MMSYSERR_BADDB: return "MMSYSERR_BADDB";
+    case MMSYSERR_KEYNOTFOUND: return "MMSYSERR_KEYNOTFOUND";
+    case MMSYSERR_READERROR: return "MMSYSERR_READERROR";
+    case MMSYSERR_WRITEERROR: return "MMSYSERR_WRITEERROR";
+    case MMSYSERR_DELETEERROR: return "MMSYSERR_DELETEERROR";
+    case MMSYSERR_VALNOTFOUND: return "MMSYSERR_VALNOTFOUND";
+    case MMSYSERR_NODRIVERCB: return "MMSYSERR_NODRIVERCB";
+    case MMSYSERR_MOREDATA: return "MMSYSERR_MOREDATA";
+    default: return "UNKNOWN";
+  }
+};
+
 std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, LegacyAxisID::type id)
 {
   switch (id)
@@ -110,40 +143,33 @@ float LegacyJoystick::get_axis_value(AxisID::type axisID) const
 
 void LegacyJoystick::update()
 {
+  init_();
   JOYINFOEX ji;
   auto const sji = sizeof(ji);
   memset(&ji, 0, sji);
   ji.dwSize = sji;
   ji.dwFlags = JOY_RETURNALL;
-  auto mmr = joyGetPosEx(this->joyID_, &ji);
+  auto mmr = joyGetPosEx(joyID_, &ji);
   if (JOYERR_NOERROR != mmr)
-    throw std::runtime_error("Cannot get joystick info");
+  {
+    ready_ = false;
+    throw std::runtime_error(stream_to_str("Cannot get joystick info (id: ", joyID_, "; error: ", mmsyserr_to_cstr(mmr), ")"));
+  }
   for (int i = AxisID::first; i < AxisID::num; ++i)
   {
     auto const ai = static_cast<AxisID::type>(i);
-    auto const nai = this->w2n_axis_(ai);
+    auto const nai = w2n_axis_(ai);
     if (LegacyAxisID::num == nai)
-      throw std::logic_error("Bad axis id");
-    auto const & l = this->nativeLimits_.at(nai);
-    this->axes_.at(i) = lerp<DWORD, float>(get_pos_from_joyinfoex(ji, nai), l.first, l.second, -1.0f, 1.0f);
+      continue;
+    auto const & l = nativeLimits_.at(nai);
+    axes_.at(i) = lerp<DWORD, float>(get_pos_from_joyinfoex(ji, nai), l.first, l.second, -1.0f, 1.0f);
   }
 }
 
-LegacyJoystick::LegacyJoystick(UINT joyID) : joyID_(joyID)
+LegacyJoystick::LegacyJoystick(UINT joyID) : joyID_(joyID), ready_(false)
 {
   memset(&this->axes_, 0, sizeof(this->axes_));
-
-  JOYCAPS jc;
-  auto const sjc = sizeof(jc);
-  memset(&jc, 0, sjc);
-  auto mmr = joyGetDevCaps(this->joyID_, &jc, sjc);
-  if (JOYERR_NOERROR != mmr)
-    throw std::runtime_error("Cannot get joystick caps or joystick is disconnected");
-  for (int i = LegacyAxisID::first; i < LegacyAxisID::num; ++i)
-  {
-    auto const nai = static_cast<LegacyAxisID::type>(i);
-    this->nativeLimits_.at(i) = get_limits_from_joycaps(jc, nai);
-  }
+  init_();
 }
 
 LegacyAxisID::type LegacyJoystick::w2n_axis_(AxisID::type ai)
@@ -162,6 +188,28 @@ LegacyAxisID::type LegacyJoystick::w2n_axis_(AxisID::type ai)
     if (d.ai == ai)
       return d.nai;
   return LegacyAxisID::num;
+}
+
+void LegacyJoystick::init_()
+{
+  if (ready_)
+    return;
+  JOYCAPS jc;
+  auto const sjc = sizeof(jc);
+  memset(&jc, 0, sjc);
+  auto mmr = joyGetDevCaps(this->joyID_, &jc, sjc);
+  if (JOYERR_NOERROR != mmr)
+  {
+    ready_ = false;
+    throw std::runtime_error(stream_to_str("Cannot get joystick caps or joystick is disconnected (id: ", joyID_, "; error: ", mmsyserr_to_cstr(mmr), ")"));
+  }
+  for (int i = LegacyAxisID::first; i < LegacyAxisID::num; ++i)
+  {
+    auto const nai = static_cast<LegacyAxisID::type>(i);
+    this->nativeLimits_.at(i) = get_limits_from_joycaps(jc, nai);
+  }
+  ready_ = true;
+  log_message("Initialized joystick ", joyID_);
 }
 
 char const * dierr_to_cstr(HRESULT result)
