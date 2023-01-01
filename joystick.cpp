@@ -168,7 +168,8 @@ void LegacyJoystick::update()
 
 LegacyJoystick::LegacyJoystick(UINT joyID) : joyID_(joyID), ready_(false)
 {
-  memset(&this->axes_, 0, sizeof(this->axes_));
+  for (auto & v : axes_)
+    v = 0.0f;
   init_();
 }
 
@@ -285,7 +286,8 @@ void DInput8Joystick::update()
 
 DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid), ready_(false)
 {
-  memset(&this->axes_, 0, sizeof(this->axes_));
+  for (auto & v : axes_)
+    v = 0.0f;
   if (pdid == NULL)
     throw std::runtime_error("Device pointer is NULL");
   init_();
