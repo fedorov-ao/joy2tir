@@ -483,23 +483,18 @@ Main::Main(char const * configName)
   {
     auto const name = j.key();
     auto const cfg = j.value();
-    auto const type = get_d<std::string>(cfg, "type", "");
-    if (type == "legacy")
-    {
-      try {
+    try {
+      auto const type = get_d<std::string>(cfg, "type", "");
+      if (type == "legacy")
+      {
         auto const joyID = get_d<UINT>(cfg, "id", 0);
         auto const spj = std::make_shared<LegacyJoystick>(joyID);
         joysticks_[name] = spj;
         updated_.push_back(spj);
-      } catch (std::runtime_error & e)
-      {
-        log_message("Could not create joystick '", name, "' (", e.what(), ")");
       }
-    }
-    else if (type == "di8")
-    {
-      assert(spDI8JoyManager_);
-      try {
+      else if (type == "di8")
+      {
+        assert(spDI8JoyManager_);
         std::shared_ptr<Joystick> spj;
         auto const joyNameStr = get_d<std::string>(cfg, "name", "");
         if (joyNameStr.size())
@@ -515,13 +510,13 @@ Main::Main(char const * configName)
             throw std::runtime_error("Need to specify either name or guid");
         }
         joysticks_[name] = spj;
-      } catch (std::runtime_error & e)
-      {
-        log_message("Could not create joystick '", name, "' (", e.what(), ")");
       }
+      else
+        throw std::runtime_error(stream_to_str("Unknown joystick type: '", type, "'"));
+    } catch (std::runtime_error & e)
+    {
+      log_message("Could not create joystick '", name, "' (", e.what(), ")");
     }
-    else
-      log_message("Could not create joystick '", name, "' (unknown type: '", type, "')");
   }
 
   auto spPoseFactory = std::make_shared<AxisPoseFactory>();
