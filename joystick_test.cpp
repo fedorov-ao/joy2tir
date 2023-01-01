@@ -36,9 +36,9 @@ int list_legacy_joysticks()
       mmr = joyGetDevCaps(joyID, &jc, sizeof(jc));
       if (JOYERR_NOERROR == mmr)
       {
-        auto desc = describe_joycaps(jc);
+        auto desc = joycaps_to_str(jc);
         std::cout << "Joystick " << joyID << " JoyCaps: " << desc << std::endl;
-        desc = describe_joyinfoex(ji);
+        desc = joyinfoex_to_str(ji);
         std::cout << "Joystick " << joyID << " JoyInfoEx: " << desc << std::endl;
       }
       else

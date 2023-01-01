@@ -74,14 +74,16 @@ struct LegacyAxisID {
 
 std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, LegacyAxisID::type id);
 DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, LegacyAxisID::type id);
-std::string describe_joycaps(JOYCAPS const & jc);
-std::string describe_joyinfoex(JOYINFOEX const & ji);
+std::string joycaps_to_str(JOYCAPS const & jc);
+std::string joyinfoex_to_str(JOYINFOEX const & ji);
 
 struct LegacyJoystickInfo
 {
-  JOYCAPS joyCaps;
-  JOYINFOEX joyInfo;
+  JOYCAPS caps;
+  JOYINFOEX info;
 };
+
+std::string legacyjoystickinfo_to_str(LegacyJoystickInfo const & info, int mode = 0);
 
 std::vector<LegacyJoystickInfo> get_legacy_joysticks_info();
 
@@ -110,6 +112,8 @@ struct DI8DeviceInfo
   DIDEVICEINSTANCEA info;
   DIDEVCAPS caps;
 };
+
+std::string di8deviceinfo_to_str(DI8DeviceInfo const & info, int mode);
 
 std::vector<DI8DeviceInfo> get_di8_devices_info(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);
 std::string dideviceinstancea_to_str(DIDEVICEINSTANCEA const & ddi);

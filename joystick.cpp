@@ -96,7 +96,7 @@ DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, LegacyAxisID::type id)
   }
 }
 
-std::string describe_joycaps(JOYCAPS const & jc)
+std::string joycaps_to_str(JOYCAPS const & jc)
 {
   std::stringstream ss;
   ss <<
@@ -127,7 +127,7 @@ std::string describe_joycaps(JOYCAPS const & jc)
   return ss.str();
 }
 
-std::string describe_joyinfoex(JOYINFOEX const & ji)
+std::string joyinfoex_to_str(JOYINFOEX const & ji)
 {
   std::stringstream ss;
   ss <<
@@ -147,6 +147,16 @@ std::string describe_joyinfoex(JOYINFOEX const & ji)
   return ss.str();
 }
 
+std::string legacyjoystickinfo_to_str(LegacyJoystickInfo const & info, int mode)
+{
+  switch (mode)
+  {
+    case(0): return stream_to_str("[info: ", joyinfoex_to_str(info.info), "]; caps: [", joycaps_to_str(info.caps), "]");
+    case(1): return stream_to_str("name: ", info.caps.szPname, "; axes: ", info.caps.wNumAxes, "; buttons: ", info.caps.wNumButtons);
+    default: throw std::logic_error(stream_to_str("Unknown mode: ", mode));
+  }
+}
+
 std::vector<LegacyJoystickInfo> get_legacy_joysticks_info()
 {
   std::vector<LegacyJoystickInfo> r;
@@ -154,12 +164,12 @@ std::vector<LegacyJoystickInfo> get_legacy_joysticks_info()
   for (decltype(numJoysticks) joyID = 0; joyID < numJoysticks; ++joyID)
   {
     LegacyJoystickInfo info;
-    info.joyInfo.dwSize = sizeof(info.joyInfo);
-    info.joyInfo.dwFlags = JOY_RETURNALL;
-    auto mmr = joyGetPosEx(joyID, &info.joyInfo);
+    info.info.dwSize = sizeof(info.info);
+    info.info.dwFlags = JOY_RETURNALL;
+    auto mmr = joyGetPosEx(joyID, &info.info);
     if (JOYERR_NOERROR != mmr)
       continue;
-    mmr = joyGetDevCaps(joyID, &info.joyCaps, sizeof(info.joyCaps));
+    mmr = joyGetDevCaps(joyID, &info.caps, sizeof(info.caps));
     if (JOYERR_NOERROR != mmr)
       continue;
     r.push_back(info);
@@ -281,6 +291,17 @@ char const * dierr_to_cstr(HRESULT result)
     case DIERR_MAPFILEFAIL: return "DIERR_MAPFILEFAIL";
     default: return "UNKNOWN";
   }
+}
+
+std::string di8deviceinfo_to_str(DI8DeviceInfo const & info, int mode)
+{
+  switch (mode)
+  {
+    case(0): return stream_to_str("info: [", dideviceinstancea_to_str(info.info), "]; caps: [", didevcaps_to_str(info.caps), "]");
+    case(1): return stream_to_str("name: ", info.info.tszInstanceName, "; GUID: ", guid2str(info.info.guidInstance), "; axes: ", info.caps.dwAxes, "; buttons: ", info.caps.dwButtons, "; povs: ", info.caps.dwPOVs);
+    default: throw std::logic_error(stream_to_str("Unknown mode: ", mode));
+  }
+
 }
 
 std::string dideviceinstancea_to_str(DIDEVICEINSTANCEA const & ddi)
