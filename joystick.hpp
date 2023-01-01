@@ -87,11 +87,13 @@ public:
 private:
   static AxisID::type n2w_axis_(DWORD nai);
   static BOOL __stdcall fill_limits_cb_(LPCDIDEVICEOBJECTINSTANCE lpddoi, LPVOID pvRef);
+  void init_();
 
   static DWORD const buffSize_ = 16;
   LPDIRECTINPUTDEVICE8A pdid_;
   std::array<std::pair<LONG, LONG>, AxisID::num> nativeLimits_;
   std::array<float, AxisID::num> axes_;
+  bool ready_;
 };
 
 class DInput8JoystickManager : public Updated

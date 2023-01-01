@@ -574,7 +574,14 @@ void Main::set_tir_data_fields(short dataFields)
 void Main::update()
 {
   for (auto const & sp : updated_)
-    sp->update();
+    try
+    {
+      sp->update();
+    }
+    catch (std::runtime_error & e)
+    {
+      log_message(e.what());
+    }
 }
 
 void Main::fill_tir_data(void * data)

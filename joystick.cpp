@@ -182,13 +182,17 @@ float DInput8Joystick::get_axis_value(AxisID::type axisID) const
 
 void DInput8Joystick::update()
 {
+  init_();
   std::array<DIDEVICEOBJECTDATA, buffSize_> data;
   DWORD inOut = buffSize_;
   while (true)
   {
     auto const result = pdid_->GetDeviceData(sizeof(DIDEVICEOBJECTDATA), data.data(), &inOut, 0);
     if (FAILED(result))
+    {
+      ready_ = false;
       throw std::runtime_error(stream_to_str("Failed to get device data: ", dierr_to_cstr(result)));
+    }
     if (inOut == 0)
       break;
     //TODO Process only last event for each axis?
@@ -205,38 +209,12 @@ void DInput8Joystick::update()
   }
 }
 
-DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid)
+DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid), ready_(false)
 {
   memset(&this->axes_, 0, sizeof(this->axes_));
   if (pdid == NULL)
     throw std::runtime_error("Device pointer is NULL");
-  auto result = pdid_->SetDataFormat(&c_dfDIJoystick);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to set data format");
-  DIPROPDWORD dipdBuffSize;
-  dipdBuffSize.diph.dwSize = sizeof(DIPROPDWORD);
-  dipdBuffSize.diph.dwHeaderSize = sizeof(DIPROPHEADER);
-  dipdBuffSize.diph.dwObj = 0;
-  dipdBuffSize.diph.dwHow = DIPH_DEVICE;
-  dipdBuffSize.dwData = buffSize_;
-  result = pdid_->SetProperty(DIPROP_BUFFERSIZE, &dipdBuffSize.diph);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to set buffer size");
-  DIPROPDWORD dipdAxisMode;
-  dipdAxisMode.diph.dwSize = sizeof(DIPROPDWORD);
-  dipdAxisMode.diph.dwHeaderSize = sizeof(DIPROPHEADER);
-  dipdAxisMode.diph.dwObj = 0;
-  dipdAxisMode.diph.dwHow = DIPH_DEVICE;
-  dipdAxisMode.dwData = DIPROPAXISMODE_ABS;
-  result = pdid_->SetProperty(DIPROP_AXISMODE, &dipdAxisMode.diph);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to set axis mode to absolute");
-  result = pdid_->EnumObjects(fill_limits_cb_, this, DIDFT_ABSAXIS);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to fill limits");
-  result = pdid_->Acquire();
-  if (FAILED(result))
-    throw std::runtime_error("Failed to acquire");
+  init_();
 }
 
 AxisID::type DInput8Joystick::n2w_axis_(DWORD nai)
@@ -290,6 +268,40 @@ BOOL __stdcall fill_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
   return DIENUM_CONTINUE;
 }
 
+void DInput8Joystick::init_()
+{
+  if (ready_)
+    return;
+  auto result = pdid_->SetDataFormat(&c_dfDIJoystick);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to set data format");
+  DIPROPDWORD dipdBuffSize;
+  dipdBuffSize.diph.dwSize = sizeof(DIPROPDWORD);
+  dipdBuffSize.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+  dipdBuffSize.diph.dwObj = 0;
+  dipdBuffSize.diph.dwHow = DIPH_DEVICE;
+  dipdBuffSize.dwData = buffSize_;
+  result = pdid_->SetProperty(DIPROP_BUFFERSIZE, &dipdBuffSize.diph);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to set buffer size");
+  DIPROPDWORD dipdAxisMode;
+  dipdAxisMode.diph.dwSize = sizeof(DIPROPDWORD);
+  dipdAxisMode.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+  dipdAxisMode.diph.dwObj = 0;
+  dipdAxisMode.diph.dwHow = DIPH_DEVICE;
+  dipdAxisMode.dwData = DIPROPAXISMODE_ABS;
+  result = pdid_->SetProperty(DIPROP_AXISMODE, &dipdAxisMode.diph);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to set axis mode to absolute");
+  result = pdid_->EnumObjects(fill_limits_cb_, this, DIDFT_ABSAXIS);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to fill limits");
+  result = pdid_->Acquire();
+  if (FAILED(result))
+    throw std::runtime_error("Failed to acquire");
+  ready_ = true;
+}
+
 std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags)
 {
   std::vector<DIDEVICEINSTANCEA> devs;
@@ -318,7 +330,6 @@ LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DID
   auto const & instanceGuid = itDev->guidInstance;
   return create_device_by_guid(pdi, instanceGuid);
 };
-
 
 std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_name(char const * name)
 {
