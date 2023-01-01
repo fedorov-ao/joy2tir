@@ -427,7 +427,7 @@ Main::Main(char const * configName)
     }
     log_message("DirectInput8 joysticks");
     for (auto const & d : spDI8JoyManager_->get_joysticks_info())
-      log_message(dideviceinstancea_to_str(d));
+      log_message(dideviceinstancea_to_str(d.info));
   }
 
   auto const tirDataFieldsName = "tirDataFields";

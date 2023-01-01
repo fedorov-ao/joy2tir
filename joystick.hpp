@@ -105,9 +105,14 @@ private:
 };
 
 /* DirectInput8 */
-std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);
+struct DI8DeviceInfo
+{
+  DIDEVICEINSTANCEA info;
+};
+
+std::vector<DI8DeviceInfo> get_di8_devices_info(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);
 LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID);
-LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DIDEVICEINSTANCEA> const & devs, char const * name);
+LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8DeviceInfo> const & devs, char const * name);
 
 class DInput8Joystick : public Joystick, public Updated
 {
@@ -134,7 +139,7 @@ class DInput8JoystickManager : public Updated
 public:
   std::shared_ptr<DInput8Joystick> make_joystick_by_name(char const * name);
   std::shared_ptr<DInput8Joystick> make_joystick_by_guid(REFGUID instanceGUID);
-  std::vector<DIDEVICEINSTANCEA> const & get_joysticks_info() const;
+  std::vector<DI8DeviceInfo> const & get_joysticks_info() const;
   virtual void update() override;
 
   DInput8JoystickManager();
@@ -142,7 +147,7 @@ public:
 private:
   LPDIRECTINPUT8A pdi_;
   std::vector<std::shared_ptr<DInput8Joystick> > joysticks_;
-  std::vector<DIDEVICEINSTANCEA> devs_;
+  std::vector<DI8DeviceInfo> devs_;
 };
 
 #endif

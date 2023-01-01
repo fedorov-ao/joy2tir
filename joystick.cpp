@@ -284,20 +284,23 @@ char const * dierr_to_cstr(HRESULT result)
 
 BOOL WINAPI fill_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
 {
-  using devs_t = std::vector<DIDEVICEINSTANCEA>;
+  using infos_t = std::vector<DI8DeviceInfo>;
   assert(pvRef);
-  auto pDevs = reinterpret_cast<devs_t*>(pvRef);
-  pDevs->push_back(*lpddi);
+  auto pInfos = reinterpret_cast<infos_t*>(pvRef);
+  DI8DeviceInfo info;
+  info.info = *lpddi;
+  //TODO Save device caps
+  pInfos->push_back(info);
   return DIENUM_CONTINUE;
 }
 
-std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags)
+std::vector<DI8DeviceInfo> get_di8_devices_info(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags)
 {
-  std::vector<DIDEVICEINSTANCEA> devs;
-  auto result = pdi->EnumDevices(devType, fill_devices_cb, &devs, flags);
+  std::vector<DI8DeviceInfo> infos;
+  auto result = pdi->EnumDevices(devType, fill_devices_cb, &infos, flags);
   if (FAILED(result))
     throw std::runtime_error("Failed to enum devices");
-  return devs;
+  return infos;
 }
 
 LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID)
@@ -309,14 +312,14 @@ LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanc
   return pdid;
 };
 
-LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DIDEVICEINSTANCEA> const & devs, char const * name)
+LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8DeviceInfo> const & devs, char const * name)
 {
   auto itDev = std::find_if(devs.begin(), devs.end(),
-    [&name](std::remove_reference<decltype(devs)>::type::value_type const & v) { return strcmp(name, v.tszInstanceName) == 0; }
+    [&name](std::remove_reference<decltype(devs)>::type::value_type const & v) { return strcmp(name, v.info.tszInstanceName) == 0; }
   );
   if (itDev == devs.end())
     throw std::runtime_error("Cannot find device");
-  auto const & instanceGuid = itDev->guidInstance;
+  auto const & instanceGuid = itDev->info.guidInstance;
   return create_device_by_guid(pdi, instanceGuid);
 };
 
@@ -456,7 +459,7 @@ std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_guid(R
   return spJoystick;
 }
 
-std::vector<DIDEVICEINSTANCEA> const & DInput8JoystickManager::get_joysticks_info() const
+std::vector<DI8DeviceInfo> const & DInput8JoystickManager::get_joysticks_info() const
 {
   return devs_;
 }
@@ -475,5 +478,5 @@ DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), dev
   if (FAILED(result))
     throw std::runtime_error("Failed to create DirectInput8");
   assert(pdi_);
-  devs_ = get_devices(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
+  devs_ = get_di8_devices_info(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
 }

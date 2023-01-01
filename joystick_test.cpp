@@ -314,15 +314,15 @@ void test_dinput(int argc, char** argv)
   if (strcmp(mode, "enum") == 0)
   {
     std::cout << "Enumerating devices" << std::endl;
-    auto devs = get_devices(pdi, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
+    auto devs = get_di8_devices_info(pdi, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
     for (auto const & dev : devs)
-      std::cout << dideviceinstancea_to_str(dev) << std::endl;
+      std::cout << dideviceinstancea_to_str(dev.info) << std::endl;
   }
   else if (strcmp(mode, "create") == 0)
   {
     auto const name = argv[1];
     std::cout << "Creating device " << name << std::endl;
-    auto devs = get_devices(pdi, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
+    auto devs = get_di8_devices_info(pdi, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
     auto pdid = create_device_by_name(pdi, devs, name);
     std::cout << "Device created" << std::endl;
     DIDEVCAPS caps;
