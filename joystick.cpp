@@ -7,18 +7,18 @@
 #include <cassert>
 
 /* Joysticks */
-char const * AxisID::names_[AxisID::num] = {"x", "y", "z", "rx", "ry", "rz", "u", "v"};
+decltype(AxisID::names_) AxisID::names_ = {"x", "y", "z", "rx", "ry", "rz", "u", "v"};
 
 char const * AxisID::to_cstr(AxisID::type id)
 {
-  return (id < first || id > num) ? "unknown" : names_[id];
+  return (id < first || id > num) ? "unknown" : names_.at(id);
 }
 
 AxisID::type AxisID::from_cstr(char const * name)
 {
-  for (int i = 0; i < sizeof(names_)/sizeof(names_[0]); ++i)
+  for (decltype(names_)::size_type i = 0; i < names_.size(); ++i)
   {
-    if (strcmp(names_[i], name) == 0)
+    if (strcmp(names_.at(i), name) == 0)
       return static_cast<type>(i);
   }
   return num;
@@ -105,7 +105,7 @@ std::string describe_joyinfoex(JOYINFOEX& ji)
 
 float LegacyJoystick::get_axis_value(AxisID::type axisID) const
 {
-  return this->axes_[axisID];
+  return this->axes_.at(axisID);
 }
 
 void LegacyJoystick::update()
@@ -124,8 +124,8 @@ void LegacyJoystick::update()
     auto const nai = this->w2n_axis_(ai);
     if (LegacyAxisID::num == nai)
       throw std::logic_error("Bad axis id");
-    auto const & l = this->nativeLimits_[nai];
-    this->axes_[i] = lerp<DWORD, float>(get_pos_from_joyinfoex(ji, nai), l.first, l.second, -1.0f, 1.0f);
+    auto const & l = this->nativeLimits_.at(nai);
+    this->axes_.at(i) = lerp<DWORD, float>(get_pos_from_joyinfoex(ji, nai), l.first, l.second, -1.0f, 1.0f);
   }
 }
 
@@ -142,20 +142,21 @@ LegacyJoystick::LegacyJoystick(UINT joyID) : joyID_(joyID)
   for (int i = LegacyAxisID::first; i < LegacyAxisID::num; ++i)
   {
     auto const nai = static_cast<LegacyAxisID::type>(i);
-    this->nativeLimits_[i] = get_limits_from_joycaps(jc, nai);
+    this->nativeLimits_.at(i) = get_limits_from_joycaps(jc, nai);
   }
 }
 
 LegacyAxisID::type LegacyJoystick::w2n_axis_(AxisID::type ai)
 {
-  static struct D { AxisID::type ai; LegacyAxisID::type nai; } mapping[] = 
+  struct D { AxisID::type ai; LegacyAxisID::type nai; };
+  static std::array<D, AxisID::num> mapping = 
   {
-    { AxisID::x, LegacyAxisID::x },
-    { AxisID::y, LegacyAxisID::y },
-    { AxisID::z, LegacyAxisID::z },
-    { AxisID::rx, LegacyAxisID::r },
-    { AxisID::ry, LegacyAxisID::u },
-    { AxisID::rz, LegacyAxisID::v }
+    D{ AxisID::x, LegacyAxisID::x },
+    D{ AxisID::y, LegacyAxisID::y },
+    D{ AxisID::z, LegacyAxisID::z },
+    D{ AxisID::rx, LegacyAxisID::r },
+    D{ AxisID::ry, LegacyAxisID::u },
+    D{ AxisID::rz, LegacyAxisID::v }
   };
   for (auto const & d : mapping)
     if (d.ai == ai)
@@ -176,33 +177,29 @@ char const * dierr_to_cstr(HRESULT result)
 
 float DInput8Joystick::get_axis_value(AxisID::type axisID) const
 {
-  return this->axes_[axisID];
+  return this->axes_.at(axisID);
 }
 
 void DInput8Joystick::update()
 {
-  DIDEVICEOBJECTDATA data[buffSize_];
+  std::array<DIDEVICEOBJECTDATA, buffSize_> data;
   DWORD inOut = buffSize_;
   while (true)
   {
-    auto const result = pdid_->GetDeviceData(sizeof(DIDEVICEOBJECTDATA), data, &inOut, 0);
-    if ((DI_OK != result) && (DI_BUFFEROVERFLOW != result))
-    {
-      std::stringstream ss;
-      ss << "Failed to get device data: " << dierr_to_cstr(result);
-      throw std::runtime_error(ss.str().c_str());
-    }
+    auto const result = pdid_->GetDeviceData(sizeof(DIDEVICEOBJECTDATA), data.data(), &inOut, 0);
+    if (FAILED(result))
+      throw std::runtime_error(stream_to_str("Failed to get device data: ", dierr_to_cstr(result)));
     if (inOut == 0)
       break;
     //TODO Process only last event for each axis?
-    for (auto i = 0; i < inOut; ++i)
+    for (decltype(inOut) i = 0; i < inOut; ++i)
     {
-      auto const & d = data[i];
+      auto const & d = data.at(i);
       auto const ai = this->n2w_axis_(d.dwOfs);
       if (ai == AxisID::num)
         continue;
-      auto const & l = this->nativeLimits_[ai];
-      this->axes_[ai] = lerp<DWORD, float>(d.dwData, l.first, l.second, -1.0f, 1.0f);
+      auto const & l = this->nativeLimits_.at(ai);
+      this->axes_.at(ai) = lerp<DWORD, float>(d.dwData, l.first, l.second, -1.0f, 1.0f);
     }
     inOut = buffSize_;
   }
@@ -244,16 +241,17 @@ DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid)
 
 AxisID::type DInput8Joystick::n2w_axis_(DWORD nai)
 {
-  static struct D { AxisID::type ai; DWORD nai; } mapping[] = 
+  struct D { AxisID::type ai; DWORD nai; };
+  static std::array<D, AxisID::num> mapping = 
   {
-    { AxisID::x, DIJOFS_X },
-    { AxisID::y, DIJOFS_Y },
-    { AxisID::z, DIJOFS_Z },
-    { AxisID::rx, DIJOFS_RX },
-    { AxisID::ry, DIJOFS_RY },
-    { AxisID::rz, DIJOFS_RZ },
-    { AxisID::u, DIJOFS_SLIDER(0) },
-    { AxisID::v, DIJOFS_SLIDER(1) }
+    D{ AxisID::x, DIJOFS_X },
+    D{ AxisID::y, DIJOFS_Y },
+    D{ AxisID::z, DIJOFS_Z },
+    D{ AxisID::rx, DIJOFS_RX },
+    D{ AxisID::ry, DIJOFS_RY },
+    D{ AxisID::rz, DIJOFS_RZ },
+    D{ AxisID::u, DIJOFS_SLIDER(0) },
+    D{ AxisID::v, DIJOFS_SLIDER(1) }
   };
   for (auto const & d : mapping)
     if (d.nai == nai)
@@ -275,7 +273,7 @@ BOOL __stdcall DInput8Joystick::fill_limits_cb_(LPCDIDEVICEOBJECTINSTANCE lpddoi
     auto ai = n2w_axis_(dwOfs);
     if (ai != AxisID::num && that->pdid_->GetProperty(DIPROP_RANGE, &range.diph) == DI_OK)
     {
-      auto & nl = that->nativeLimits_[ai];
+      auto & nl = that->nativeLimits_.at(ai);
       nl.first = range.lMin;
       nl.second = range.lMax;
     }

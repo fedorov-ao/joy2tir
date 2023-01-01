@@ -136,9 +136,9 @@ struct PoseMemberID
 
   static type from_cstr(char const * name)
   {
-    for (int i = 0; i < sizeof(names_)/sizeof(names_[0]); ++i)
+    for (int i = 0; i < names_.size(); ++i)
     {
-      if (strncmp(names_[i], name, strlen(names_[i])) == 0)
+      if (strcmp(names_.at(i), name) == 0)
         return static_cast<type>(i);
     }
     return num;
@@ -146,14 +146,14 @@ struct PoseMemberID
 
   static char const * to_cstr(type id)
   {
-    return (id < first || id > num) ? "unknown" : names_[id];
+    return (id < first || id > num) ? "unknown" : names_.at(id);
   }
 
 private:
-  static char const * names_[num];
+  static std::array<char const *, num> names_;
 };
 
-char const * PoseMemberID::names_[PoseMemberID::num] = {"yaw", "pitch", "roll", "x", "y", "z"};
+decltype(PoseMemberID::names_) PoseMemberID::names_ = {"yaw", "pitch", "roll", "x", "y", "z"};
 
 struct Pose
 {
@@ -193,44 +193,45 @@ public:
   AxisPoseFactory();
 
 private:
-  struct AxisData { std::shared_ptr<Axis> spAxis; limits_t limits; } axes_[PoseMemberID::num];
+  struct AxisData { std::shared_ptr<Axis> spAxis; limits_t limits; };
+  std::array<AxisData, PoseMemberID::num> axes_;
 };
 
 Pose AxisPoseFactory::make_pose() const
 {
   auto const num = PoseMemberID::num;
-  float v[num];
-  for (int i = PoseMemberID::first; i < num; ++i)
+  std::array<float, num> v;
+  for (size_t i = PoseMemberID::first; i < num; ++i)
   {
-    auto const & d = this->axes_[i];
-    v[i] = d.spAxis ? lerp(d.spAxis->get_value(), -1.0f, 1.0f, d.limits.first, d.limits.second) : 0.0f;
+    auto const & d = this->axes_.at(i);
+    v.at(i) = d.spAxis ? lerp(d.spAxis->get_value(), -1.0f, 1.0f, d.limits.first, d.limits.second) : 0.0f;
   }
   return Pose (
-    v[PoseMemberID::yaw],
-    v[PoseMemberID::pitch],
-    v[PoseMemberID::roll],
-    v[PoseMemberID::x],
-    v[PoseMemberID::y],
-    v[PoseMemberID::z]
+    v.at(PoseMemberID::yaw),
+    v.at(PoseMemberID::pitch),
+    v.at(PoseMemberID::roll),
+    v.at(PoseMemberID::x),
+    v.at(PoseMemberID::y),
+    v.at(PoseMemberID::z)
   );
 }
 
 void AxisPoseFactory::set_mapping(PoseMemberID::type poseMemberID, std::shared_ptr<Axis> const & spAxis, AxisPoseFactory::limits_t const & limits)
 {
-  auto & d = this->axes_[poseMemberID];
+  auto & d = this->axes_.at(poseMemberID);
   d.spAxis = spAxis;
   d.limits = limits;
 }
 
 void AxisPoseFactory::set_axis(PoseMemberID::type poseMemberID, std::shared_ptr<Axis> const & spAxis)
 {
-  auto & d = this->axes_[poseMemberID];
+  auto & d = this->axes_.at(poseMemberID);
   d.spAxis = spAxis;
 }
 
 void AxisPoseFactory::set_limits(PoseMemberID::type poseMemberID, AxisPoseFactory::limits_t const & limits)
 {
-  auto & d = this->axes_[poseMemberID];
+  auto & d = this->axes_.at(poseMemberID);
   d.limits = limits;
 }
 
@@ -246,10 +247,6 @@ AxisPoseFactory::AxisPoseFactory()
 /* tir_data setter */
 struct TIRData
 {
-private:
-  struct Cstr2Value { char const * name; int value; };
-  static Cstr2Value cstr2value_[16];
-
 public:
   enum type {
     NPControl = 8,
@@ -263,7 +260,7 @@ public:
   static short from_cstr(char const * name)
   {
     for (auto const & d : cstr2value_)
-      if (0 == strncmp(d.name, name, strlen(d.name)))
+      if (0 == strcmp(d.name, name))
         return d.value;
     return 0;
   }
@@ -301,25 +298,29 @@ public:
     );
     return ss.str();
   }
+
+private:
+  struct D { char const * name; int value; };
+  static std::array<D, 16> cstr2value_;
 };
 
-TIRData::Cstr2Value TIRData::cstr2value_[16] = {
-  { "control", TIRData::NPControl },
-  { "roll", TIRData::NPRoll },
-  { "pitch", TIRData::NPPitch },
-  { "yaw", TIRData::NPYaw },
-  { "x", TIRData::NPX },
-  { "y", TIRData::NPY },
-  { "z", TIRData::NPZ },
-  { "rawx", TIRData::NPRawX },
-  { "rawy", TIRData::NPRawY },
-  { "rawz", TIRData::NPRawZ },
-  { "deltax", TIRData::NPDeltaX },
-  { "deltay", TIRData::NPDeltaY },
-  { "deltaz", TIRData::NPDeltaZ },
-  { "smoothx", TIRData::NPSmoothX },
-  { "smoothy", TIRData::NPSmoothY },
-  { "smoothz", TIRData::NPSmoothZ }
+decltype(TIRData::cstr2value_) TIRData::cstr2value_ = {
+  D{ "control", TIRData::NPControl },
+  D{ "roll", TIRData::NPRoll },
+  D{ "pitch", TIRData::NPPitch },
+  D{ "yaw", TIRData::NPYaw },
+  D{ "x", TIRData::NPX },
+  D{ "y", TIRData::NPY },
+  D{ "z", TIRData::NPZ },
+  D{ "rawx", TIRData::NPRawX },
+  D{ "rawy", TIRData::NPRawY },
+  D{ "rawz", TIRData::NPRawZ },
+  D{ "deltax", TIRData::NPDeltaX },
+  D{ "deltay", TIRData::NPDeltaY },
+  D{ "deltaz", TIRData::NPDeltaZ },
+  D{ "smoothx", TIRData::NPSmoothX },
+  D{ "smoothy", TIRData::NPSmoothY },
+  D{ "smoothz", TIRData::NPSmoothZ }
 };
 
 class TIRDataSetter
@@ -651,8 +652,13 @@ int __stdcall NP_GetData(void *data)
 
   if (g_spMain)
   {
-    g_spMain->update();
-    g_spMain->fill_tir_data(data);
+    try {
+      g_spMain->update();
+      g_spMain->fill_tir_data(data);
+    } catch (std::exception & e)
+    {
+      log_message("Exception in main loop: ", e.what());
+    }
   }
 
   return 0;

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <memory> //shared ptr
 
 #include <windows.h> //legacy joystick API
@@ -28,9 +29,8 @@ struct AxisID
   static type from_cstr(char const * name);
 
 private:
-  static char const * names_[num];
+  static std::array<char const *, AxisID::num> names_;
 };
-
 
 std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, LegacyAxisID::type id);
 
@@ -68,8 +68,8 @@ private:
   static LegacyAxisID::type w2n_axis_(AxisID::type ai);
 
   UINT joyID_;
-  std::pair<UINT, UINT> nativeLimits_[LegacyAxisID::num];
-  float axes_[AxisID::num];
+  std::array<std::pair<UINT, UINT>, LegacyAxisID::num> nativeLimits_;
+  std::array<float, AxisID::num> axes_;
 };
 
 std::vector<DIDEVICEINSTANCEA> get_devices(LPDIRECTINPUT8A pdi, DWORD devType, DWORD flags);
@@ -90,8 +90,8 @@ private:
 
   static DWORD const buffSize_ = 16;
   LPDIRECTINPUTDEVICE8A pdid_;
-  std::pair<LONG, LONG> nativeLimits_[AxisID::num];
-  float axes_[AxisID::num];
+  std::array<std::pair<LONG, LONG>, AxisID::num> nativeLimits_;
+  std::array<float, AxisID::num> axes_;
 };
 
 class DInput8JoystickManager : public Updated
