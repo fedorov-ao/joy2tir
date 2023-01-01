@@ -85,7 +85,7 @@ DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, LegacyAxisID::type id)
   }
 }
 
-std::string describe_joycaps(JOYCAPS& jc)
+std::string describe_joycaps(JOYCAPS const & jc)
 {
   std::stringstream ss;
   ss <<
@@ -116,7 +116,7 @@ std::string describe_joycaps(JOYCAPS& jc)
   return ss.str();
 }
 
-std::string describe_joyinfoex(JOYINFOEX& ji)
+std::string describe_joyinfoex(JOYINFOEX const & ji)
 {
   std::stringstream ss;
   ss <<

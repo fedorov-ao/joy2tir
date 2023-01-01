@@ -36,9 +36,9 @@ std::pair<UINT, UINT> get_limits_from_joycaps(JOYCAPS const & jc, LegacyAxisID::
 
 DWORD get_pos_from_joyinfoex(JOYINFOEX const & ji, LegacyAxisID::type id);
 
-std::string describe_joycaps(JOYCAPS& jc);
+std::string describe_joycaps(JOYCAPS const & jc);
 
-std::string describe_joyinfoex(JOYINFOEX& ji);
+std::string describe_joyinfoex(JOYINFOEX const & ji);
 
 class Joystick
 {

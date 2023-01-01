@@ -425,6 +425,32 @@ void list_legacy_joysticks()
   }
 }
 
+struct LegacyJoystickInfo
+{
+  JOYCAPS joyCaps;
+  JOYINFOEX joyInfo;
+};
+
+std::vector<LegacyJoystickInfo> get_legacy_joysticks_info()
+{
+  std::vector<LegacyJoystickInfo> r;
+  auto numJoysticks = joyGetNumDevs();
+  for (decltype(numJoysticks) joyID = 0; joyID < numJoysticks; ++joyID)
+  {
+    LegacyJoystickInfo info;
+    info.joyInfo.dwSize = sizeof(info.joyInfo);
+    info.joyInfo.dwFlags = JOY_RETURNALL;
+    auto mmr = joyGetPosEx(joyID, &info.joyInfo);
+    if (JOYERR_NOERROR != mmr)
+      continue;
+    mmr = joyGetDevCaps(joyID, &info.joyCaps, sizeof(info.joyCaps));
+    if (JOYERR_NOERROR != mmr)
+      continue;
+    r.push_back(info);
+  }
+  return r;
+}
+
 /* Main class */
 class Main
 {
@@ -457,7 +483,12 @@ Main::Main(char const * configName)
   if (printJoysticks)
   {
     log_message("Legacy joysticks");
-    list_legacy_joysticks();
+    auto const legacyJoysticksInfo = get_legacy_joysticks_info();
+    for (decltype(legacyJoysticksInfo)::size_type joyID = 0; joyID < legacyJoysticksInfo.size(); ++joyID)
+    {
+      auto const & info = legacyJoysticksInfo.at(joyID);
+      log_message("joystick ", joyID, ": info: ", describe_joyinfoex(info.joyInfo), "; caps: ", describe_joycaps(info.joyCaps));
+    }
     log_message("DirectInput8 joysticks");
     for (auto const & d : spDI8JoyManager_->get_joysticks_list())
       log_message(dideviceinstancea_to_str(d));
