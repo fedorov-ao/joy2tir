@@ -447,11 +447,21 @@ std::shared_ptr<Main> g_spMain;
 
 Main::Main(char const * configName)
 {
+  spDI8JoyManager_ = std::make_shared<DInput8JoystickManager>();
+  updated_.push_back(spDI8JoyManager_);
+
   std::ifstream configStream (configName);
   auto config = nlohmann::json::parse(configStream);
 
-  if (get_d<bool>(config, "printJoysticks", false))
+  auto const printJoysticks = get_d<bool>(config, "printJoysticks", false);
+  if (printJoysticks)
+  {
+    log_message("Legacy joysticks");
     list_legacy_joysticks();
+    log_message("DirectInput8 joysticks");
+    for (auto const & d : spDI8JoyManager_->get_joysticks_list())
+      log_message(dideviceinstancea_to_str(d));
+  }
 
   auto const tirDataFieldsName = "tirDataFields";
   short tirDataFields = -1;
@@ -467,9 +477,6 @@ Main::Main(char const * configName)
 
   tirDataSetter_.set_erase(get_d(config, "tirEraseData", true));
   tirDataSetter_.set_frame(get_d(config, "tirStartFrame", 0));
-
-  spDI8JoyManager_ = std::make_shared<DInput8JoystickManager>();
-  updated_.push_back(spDI8JoyManager_);
 
   auto const & joysticks = config.at("joysticks");
   for (auto const & j : joysticks.items())

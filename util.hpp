@@ -20,4 +20,8 @@ GUID cstr2guidex(char const * cstr);
 
 GUID str2guidex(std::string const & str);
 
+std::string dideviceinstancea_to_str(DIDEVICEINSTANCEA const & ddi);
+
+std::string didevcaps_to_str(DIDEVCAPS const & caps);
+
 #endif

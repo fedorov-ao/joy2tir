@@ -289,30 +289,9 @@ std::ostream & operator<<(std::ostream & os, RAWINPUT const & ri)
 }
 
 /* DirectInput8 */
-std::string dideviceinstancea2str(DIDEVICEINSTANCEA const & ddi)
-{
-  static char const * fmt = "instance GUID: %s; product GUID: %s; instance name: %s; product name: %s; type: 0x%x; usage page: 0x%x; usage: 0x%x";
-  char buf[512] = {0};
-  size_t const guidBufSize = 37;
-  char guidInstanceCStr[guidBufSize] = {0};
-  guid2cstr(guidInstanceCStr, guidBufSize, ddi.guidInstance);
-  char guidProductCStr[guidBufSize] = {0};
-  guid2cstr(guidProductCStr, guidBufSize, ddi.guidProduct);
-  snprintf(buf, sizeof(buf), fmt, guidInstanceCStr, guidProductCStr, ddi.tszInstanceName, ddi.tszProductName, ddi.dwDevType, ddi.wUsagePage, ddi.wUsage);
-  return std::string(buf);
-}
-
-std::string didevcaps2str(DIDEVCAPS const & caps)
-{
-  static char const * fmt = "size: 0x%x; flags: 0x%x; dev type: 0x%x; axes: %d; buttons: %d; pows: %d; ff sample period: %d; ff min time resolution: %d; firmware revision: 0x%x; hardware revision: 0x%x; ff driver version: 0x%x";
-  char buf[512] = {0};
-  snprintf(buf, sizeof(buf), fmt, caps.dwSize, caps.dwFlags, caps.dwDevType, caps.dwAxes, caps.dwButtons, caps.dwPOVs, caps.dwFFSamplePeriod, caps.dwFFMinTimeResolution, caps.dwFirmwareRevision, caps.dwHardwareRevision, caps.dwFFDriverVersion);
-  return std::string(buf);
-}
-
 BOOL __stdcall enum_devices_cb(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
 {
-  std::cout << dideviceinstancea2str(*lpddi) << std::endl;
+  std::cout << dideviceinstancea_to_str(*lpddi) << std::endl;
   return DIENUM_CONTINUE;
 }
 
@@ -337,7 +316,7 @@ void test_dinput(int argc, char** argv)
     std::cout << "Enumerating devices" << std::endl;
     auto devs = get_devices(pdi, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
     for (auto const & dev : devs)
-      std::cout << dideviceinstancea2str(dev) << std::endl;
+      std::cout << dideviceinstancea_to_str(dev) << std::endl;
   }
   else if (strcmp(mode, "create") == 0)
   {
@@ -351,7 +330,7 @@ void test_dinput(int argc, char** argv)
     auto result = pdid->GetCapabilities(&caps);
     if (FAILED(result))
       throw std::runtime_error("Failed to get device caps");
-    std::cout << "Caps: " << didevcaps2str(caps) << std::endl;
+    std::cout << "Caps: " << didevcaps_to_str(caps) << std::endl;
   }
   else
   {

@@ -1,5 +1,5 @@
 {
-  "printJoystcks" : true,
+  "printJoysticks" : true,
   "tirDataFields" : ["control", "yaw", "pitch", "roll", "x", "y", "z"],
   "tirEraseData" : true,
   "joysticks" :

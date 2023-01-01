@@ -99,6 +99,7 @@ class DInput8JoystickManager : public Updated
 public:
   std::shared_ptr<DInput8Joystick> make_joystick_by_name(char const * name);
   std::shared_ptr<DInput8Joystick> make_joystick_by_guid(REFGUID instanceGUID);
+  std::vector<DIDEVICEINSTANCEA> const & get_joysticks_list() const;
   virtual void update() override;
 
   DInput8JoystickManager();

@@ -336,6 +336,11 @@ std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_guid(R
   return spJoystick;
 }
 
+std::vector<DIDEVICEINSTANCEA> const & DInput8JoystickManager::get_joysticks_list() const
+{
+  return devs_;
+}
+
 void DInput8JoystickManager::update()
 {
   for (auto & j : joysticks_)
@@ -350,7 +355,7 @@ DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), dev
   if (FAILED(result))
     throw std::runtime_error("Failed to create DirectInput8");
   assert(pdi_);
-  devs_ = get_devices(pdi_, DI8DEVCLASS_ALL, DIEDFL_ALLDEVICES);
+  devs_ = get_devices(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
 }
 
 float JoystickAxis::get_value() const
