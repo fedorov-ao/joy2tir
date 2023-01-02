@@ -161,7 +161,7 @@ void register_raw_device(RawDeviceInfo const & rdi, HWND hwnd, bool remove = fal
     throw std::runtime_error("Failed to register device");
 }
 
-HWND create_window(WNDPROC wndProc, char const * className, char const * windowName, bool useMessageWindow)
+HWND create_window(WNDPROC wndProc, char const * className, char const * windowName, bool useMessageWindow, float alpha=1.0)
 {
   //Define Window Class
   WNDCLASS wndclass;
@@ -178,15 +178,29 @@ HWND create_window(WNDPROC wndProc, char const * className, char const * windowN
   if (!RegisterClassA(&wndclass))
     throw std::runtime_error("Failed to register window class");
   //Create Window
+  //auto const exStyle = WS_EX_LAYERED | WS_EX_APPWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT;
+  //auto const exStyle = WS_EX_LAYERED | WS_EX_APPWINDOW | WS_EX_TOPMOST;
+  auto const exStyle = WS_EX_LAYERED;
+  //auto style = WS_VISIBLE | WS_POPUP;
+  //auto style = WS_OVERLAPPED;
+  auto style = WS_VISIBLE;
+  auto parent = useMessageWindow ? HWND_MESSAGE : nullptr;
   auto hwnd = CreateWindowEx(
-    0, className, windowName,
-    WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-    useMessageWindow ? HWND_MESSAGE : nullptr,
-    nullptr, wndclass.hInstance, nullptr);
+    exStyle,
+    className, windowName,
+    style,
+    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+    parent,
+    nullptr,
+    wndclass.hInstance,
+    nullptr);
   if (0 == hwnd)
     throw std::runtime_error("Failed to create window");
   if (!useMessageWindow)
   {
+    unsigned int const bAlpha = 255*alpha;
+    std::cout << bAlpha << std::endl;
+    SetLayeredWindowAttributes(hwnd, 0, bAlpha, LWA_ALPHA);
     ShowWindow(hwnd, SW_SHOWNORMAL);
     UpdateWindow(hwnd);
   }
@@ -254,9 +268,9 @@ public:
     }
   }
 
-  RawInputSource(char const * name, bool useMessageWindow=true) : name_(name)
+  RawInputSource(char const * name, bool useMessageWindow=true, float alpha=1.0) : name_(name)
   {
-    hwnd_ = create_window(wnd_proc_, name, name, useMessageWindow);
+    hwnd_ = create_window(wnd_proc_, name, name, useMessageWindow, alpha);
   }
 
   ~RawInputSource()
@@ -374,8 +388,11 @@ int main(int argc, char** argv)
   }
   else if (mode == "window")
   {
-    char const * className = "Class name";
-    auto hwnd = create_window(wnd_proc, className, "Window name", true);
+    auto const className = "Class name";
+    auto const windowName = "Class name";
+    auto const useMessageWindow = atoi(argv[2]); 
+    auto const alpha = atof(argv[3]);
+    auto hwnd = create_window(wnd_proc, className, windowName, useMessageWindow, alpha);
     std::cout << "Window handle: " << hwnd << std::endl;
     auto r = DestroyWindow(hwnd);
     if (0 == r)
@@ -387,8 +404,10 @@ int main(int argc, char** argv)
   }
   else if (mode == "raw_input_source")
   {
-    auto const useMessageWindow = strcmp("true", argv[2]) == 0;
-    RawInputSource ris ("RawInputSource", useMessageWindow);
+    auto const useMessageWindow = atoi(argv[2]); 
+    auto const alpha = atof(argv[3]);
+    std::cout << "useMessageWindow: " << useMessageWindow << "; alpha: " << alpha << std::endl;
+    RawInputSource ris ("RawInputSource", useMessageWindow, alpha);
     auto deviceInfos = ris.get_devices();
     for (auto & di : deviceInfos)
     {
