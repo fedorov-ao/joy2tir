@@ -180,7 +180,8 @@ HWND create_window(WNDPROC wndProc, char const * className, char const * windowN
   //Create Window
   //auto const exStyle = WS_EX_LAYERED | WS_EX_APPWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT;
   //auto const exStyle = WS_EX_LAYERED | WS_EX_APPWINDOW | WS_EX_TOPMOST;
-  auto const exStyle = WS_EX_LAYERED;
+  auto const exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT;
+  //auto const exStyle = WS_EX_LAYERED;
   //auto style = WS_VISIBLE | WS_POPUP;
   //auto style = WS_OVERLAPPED;
   auto style = WS_VISIBLE;
@@ -199,8 +200,8 @@ HWND create_window(WNDPROC wndProc, char const * className, char const * windowN
   if (!useMessageWindow)
   {
     unsigned int const bAlpha = 255*alpha;
-    std::cout << bAlpha << std::endl;
-    SetLayeredWindowAttributes(hwnd, 0, bAlpha, LWA_ALPHA);
+    if (!SetLayeredWindowAttributes(hwnd, 0, bAlpha, LWA_ALPHA))
+      throw std::runtime_error("Failed to set window alpha");
     ShowWindow(hwnd, SW_SHOWNORMAL);
     UpdateWindow(hwnd);
   }
