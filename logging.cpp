@@ -2,7 +2,9 @@
 
 std::string get_log_path()
 {
-  return "NPClient.log";
+  auto path = get_dir_to_module();
+  append_to_path(path, "NPClient.log");
+  return path;
 }
 
 std::fstream& get_log_stream()

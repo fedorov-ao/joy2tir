@@ -395,7 +395,7 @@ public:
   void fill_tir_data(void * data);
   void update();
 
-  Main(char const * configName);
+  Main();
   ~Main();
 
 private:
@@ -408,12 +408,15 @@ private:
 
 std::shared_ptr<Main> g_spMain;
 
-Main::Main(char const * configName)
+Main::Main()
 {
   spDI8JoyManager_ = std::make_shared<DInput8JoystickManager>();
   updated_.push_back(spDI8JoyManager_);
 
-  std::ifstream configStream (configName);
+  auto configPath = get_dir_to_module();
+  append_to_path(configPath, "NPClient.json");
+  log_message("Loading config from: ", configPath);
+  std::ifstream configStream (configPath);
   auto config = nlohmann::json::parse(configStream);
 
   auto const printJoysticks = get_d<bool>(config, "printJoysticks", false);
@@ -602,7 +605,7 @@ int __stdcall NP_RegisterWindowHandle(void *handle)
 {
   log_message("NP_RegisterWindowHandle, handle: ", handle);
 
-  g_spMain = std::make_shared<Main>("NPClient.json");
+  g_spMain = std::make_shared<Main>();
 
   return 0;
 }
