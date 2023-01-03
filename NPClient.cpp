@@ -10,6 +10,7 @@
 
 #include <time.h>
 #include <cstring> //memset
+#include <cstdlib> //getenv
 
 template <class R, class C, class K>
 R get_d(C const & config, K&& key, R&& dfault)
@@ -413,10 +414,20 @@ Main::Main()
   spDI8JoyManager_ = std::make_shared<DInput8JoystickManager>();
   updated_.push_back(spDI8JoyManager_);
 
-  auto configPath = get_dir_to_module();
-  append_to_path(configPath, "NPClient.json");
+  std::string configPath;
+  if (auto envConfigPath = std::getenv("JOY2TIR_CONFIG"))
+  {
+    configPath = envConfigPath;
+  }
+  else
+  {
+    configPath = get_dir_to_module();
+    append_to_path(configPath, "NPClient.json");
+  }
   log_message("Loading config from: ", configPath);
   std::ifstream configStream (configPath);
+  if (!configStream.is_open())
+    throw std::runtime_error(stream_to_str("Failed to load config from: ", configPath));
   auto config = nlohmann::json::parse(configStream);
 
   auto const printJoysticks = get_d<bool>(config, "printJoysticks", false);
@@ -605,7 +616,15 @@ int __stdcall NP_RegisterWindowHandle(void *handle)
 {
   log_message("NP_RegisterWindowHandle, handle: ", handle);
 
-  g_spMain = std::make_shared<Main>();
+  if (!g_spMain)
+  {
+    try {
+      g_spMain = std::make_shared<Main>();
+    } catch (std::runtime_error & e)
+    {
+      log_message(stream_to_str("Failed to create main object: ", e.what()));
+    }
+  }
 
   return 0;
 }

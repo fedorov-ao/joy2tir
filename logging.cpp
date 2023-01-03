@@ -1,10 +1,19 @@
 #include "logging.hpp"
+#include <cstdlib>
 
 std::string get_log_path()
 {
-  auto path = get_dir_to_module();
-  append_to_path(path, "NPClient.log");
-  return path;
+  std::string logPath;
+  if (auto envLogPath = std::getenv("JOY2TIR_LOG"))
+  {
+    logPath = envLogPath;
+  }
+  else
+  {
+    logPath = get_dir_to_module();
+    append_to_path(logPath, "NPClient.log");
+  }
+  return logPath;
 }
 
 std::fstream& get_log_stream()
