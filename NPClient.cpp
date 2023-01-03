@@ -396,6 +396,7 @@ public:
   void update();
 
   Main(char const * configName);
+  ~Main();
 
 private:
   std::vector<std::shared_ptr<Updated> > updated_;
@@ -522,6 +523,11 @@ Main::Main(char const * configName)
     }
   }
   spPoseFactory_ = spPoseFactory;
+}
+
+Main::~Main()
+{
+  log_message("Main::~Main()");
 }
 
 void Main::set_tir_data_fields(short dataFields)

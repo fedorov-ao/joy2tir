@@ -372,14 +372,19 @@ LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanc
   return pdid;
 };
 
-LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8DeviceInfo> const & devs, char const * name)
+GUID get_guid_by_name(std::vector<DI8DeviceInfo> const & infos, char const * name)
 {
-  auto itDev = std::find_if(devs.begin(), devs.end(),
-    [&name](std::remove_reference<decltype(devs)>::type::value_type const & v) { return strcmp(name, v.info.tszInstanceName) == 0; }
+  auto itDev = std::find_if(infos.begin(), infos.end(),
+    [&name](std::remove_reference<decltype(infos)>::type::value_type const & v) { return strcmp(name, v.info.tszInstanceName) == 0; }
   );
-  if (itDev == devs.end())
+  return (itDev == infos.end()) ? GUID() : itDev->info.guidInstance;
+}
+
+LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8DeviceInfo> const & infos, char const * name)
+{
+  auto instanceGuid = get_guid_by_name(infos, name);
+  if (GUID() == instanceGuid)
     throw std::runtime_error("Cannot find device");
-  auto const & instanceGuid = itDev->info.guidInstance;
   return create_device_by_guid(pdi, instanceGuid);
 };
 
@@ -425,6 +430,13 @@ DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid), read
   if (pdid == NULL)
     throw std::runtime_error("Device pointer is NULL");
   init_();
+}
+
+DInput8Joystick::~DInput8Joystick()
+{
+  log_message("DInput8Joystick::~DInput8Joystick()");
+  assert(pdid_);
+  pdid_->Release();
 }
 
 AxisID::type DInput8Joystick::n2w_axis_(DWORD nai)
@@ -505,32 +517,41 @@ void DInput8Joystick::init_()
 
 std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_name(char const * name)
 {
-  auto pdid = create_device_by_name(pdi_, devs_, name);
-  auto spJoystick = std::make_shared<DInput8Joystick>(pdid);
-  joysticks_.push_back(spJoystick);
-  return spJoystick;
+  auto const guid = get_guid_by_name(infos_, name);
+  if (guid == GUID())
+    throw std::runtime_error(stream_to_str("No GUID for name ", name));
+  return make_joystick_by_guid(guid);
 }
 
 std::shared_ptr<DInput8Joystick> DInput8JoystickManager::make_joystick_by_guid(REFGUID instanceGUID)
 {
-  auto pdid = create_device_by_guid(pdi_, instanceGUID);
-  auto spJoystick = std::make_shared<DInput8Joystick>(pdid);
-  joysticks_.push_back(spJoystick);
-  return spJoystick;
+  auto it = std::find_if(
+    joysticks_.begin(), joysticks_.end(),
+    [&instanceGUID](decltype(joysticks_)::value_type const & v) { return instanceGUID == v.first; }
+  );
+  if (it != joysticks_.end())
+    return it->second;
+  else
+  {
+    auto pdid = create_device_by_guid(pdi_, instanceGUID);
+    auto spJoystick = std::make_shared<DInput8Joystick>(pdid);
+    joysticks_.push_back(std::make_pair(instanceGUID, spJoystick));
+    return spJoystick;
+  }
 }
 
 std::vector<DI8DeviceInfo> const & DInput8JoystickManager::get_joysticks_info() const
 {
-  return devs_;
+  return infos_;
 }
 
 void DInput8JoystickManager::update()
 {
   for (auto & j : joysticks_)
-    j->update();
+    j.second->update();
 }
 
-DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), devs_()
+DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), infos_()
 {
   auto const hInstance = GetModuleHandle(NULL);
   auto const dinputVersion = 0x800;
@@ -538,5 +559,13 @@ DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), dev
   if (FAILED(result))
     throw std::runtime_error("Failed to create DirectInput8");
   assert(pdi_);
-  devs_ = get_di8_devices_info(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
+  infos_ = get_di8_devices_info(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
+}
+
+DInput8JoystickManager::~DInput8JoystickManager()
+{
+  log_message("DInput8JoystickManager::~DInput8JoystickManager()");
+  joysticks_.erase(joysticks_.begin(), joysticks_.end());
+  assert(pdi_);
+  pdi_->Release();
 }

@@ -119,7 +119,7 @@ std::vector<DI8DeviceInfo> get_di8_devices_info(LPDIRECTINPUT8A pdi, DWORD devTy
 std::string dideviceinstancea_to_str(DIDEVICEINSTANCEA const & ddi);
 std::string didevcaps_to_str(DIDEVCAPS const & caps);
 LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID);
-LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8DeviceInfo> const & devs, char const * name);
+LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8DeviceInfo> const & infos, char const * name);
 
 class DInput8Joystick : public Joystick, public Updated
 {
@@ -128,6 +128,9 @@ public:
   virtual void update() override;
 
   DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid);
+  DInput8Joystick(DInput8Joystick const &) =delete;
+  DInput8Joystick & operator=(DInput8Joystick const &) =delete;
+  ~DInput8Joystick();
 
 private:
   static AxisID::type n2w_axis_(DWORD nai);
@@ -150,11 +153,14 @@ public:
   virtual void update() override;
 
   DInput8JoystickManager();
+  DInput8JoystickManager(DInput8JoystickManager const &) =delete;
+  DInput8JoystickManager & operator=(DInput8JoystickManager const &) =delete;
+  ~DInput8JoystickManager();
 
 private:
   LPDIRECTINPUT8A pdi_;
-  std::vector<std::shared_ptr<DInput8Joystick> > joysticks_;
-  std::vector<DI8DeviceInfo> devs_;
+  std::vector<std::pair<GUID, std::shared_ptr<DInput8Joystick> > > joysticks_;
+  std::vector<DI8DeviceInfo> infos_;
 };
 
 #endif
