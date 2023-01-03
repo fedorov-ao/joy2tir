@@ -407,8 +407,6 @@ private:
   TIRDataSetter tirDataSetter_;
 };
 
-std::shared_ptr<Main> g_spMain;
-
 Main::Main()
 {
   spDI8JoyManager_ = std::make_shared<DInput8JoystickManager>();
@@ -582,6 +580,17 @@ void Main::fill_tir_data(void * data)
   tirDataSetter_.set_trackir_data(reinterpret_cast<tir_data*>(data), pose);
 }
 
+Main & get_main()
+{
+  try {
+    static Main main;
+    return main;
+  } catch (std::runtime_error & e)
+  {
+    log_message(stream_to_str("Failed to create main object: ", e.what()));
+  }
+}
+
 /* Exported Dll functions. */
 int __stdcall NP_GetSignature(struct sig_data *signature)
 {
@@ -616,16 +625,6 @@ int __stdcall NP_RegisterWindowHandle(void *handle)
 {
   log_message("NP_RegisterWindowHandle, handle: ", handle);
 
-  if (!g_spMain)
-  {
-    try {
-      g_spMain = std::make_shared<Main>();
-    } catch (std::runtime_error & e)
-    {
-      log_message(stream_to_str("Failed to create main object: ", e.what()));
-    }
-  }
-
   return 0;
 }
 
@@ -647,8 +646,7 @@ int __stdcall NP_RequestData(short dataFields)
 {
   log_message("NP_RequestData");
 
-  if (g_spMain)
-    g_spMain->set_tir_data_fields(dataFields);
+  get_main().set_tir_data_fields(dataFields);
 
   return 0;
 }
@@ -657,15 +655,13 @@ int __stdcall NP_GetData(void *data)
 {
   //log_message("NP_GetData");
 
-  if (g_spMain)
+  Main & main = get_main();
+  try {
+    main.update();
+    main.fill_tir_data(data);
+  } catch (std::exception & e)
   {
-    try {
-      g_spMain->update();
-      g_spMain->fill_tir_data(data);
-    } catch (std::exception & e)
-    {
-      log_message("Exception in main loop: ", e.what());
-    }
+    log_message("Exception in main loop: ", e.what());
   }
 
   return 0;
