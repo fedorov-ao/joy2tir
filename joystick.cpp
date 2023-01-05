@@ -398,6 +398,12 @@ void DInput8Joystick::update()
 {
   init_();
   std::array<DIDEVICEOBJECTDATA, buffSize_> data;
+  struct Value
+  {
+    DWORD dwData = 0;
+    bool wasSet = false;
+  };
+  std::array<Value, AxisID::num> values;
   DWORD inOut = buffSize_;
   while (true)
   {
@@ -409,17 +415,26 @@ void DInput8Joystick::update()
     }
     if (inOut == 0)
       break;
-    //TODO Process only last event for each axis?
     for (decltype(inOut) i = 0; i < inOut; ++i)
     {
       auto const & d = data.at(i);
-      auto const ai = this->n2w_axis_(d.dwOfs);
+      auto const ai = n2w_axis_(d.dwOfs);
       if (ai == AxisID::num)
         continue;
-      auto const & l = this->nativeLimits_.at(ai);
-      this->axes_.at(ai) = lerp<DWORD, float>(d.dwData, l.first, l.second, -1.0f, 1.0f);
+      auto & v = values.at(ai);
+      v.wasSet = true;
+      v.dwData = d.dwData;
     }
     inOut = buffSize_;
+  }
+  for (int ai = AxisID::first; ai < AxisID::num; ++ai)
+  {
+    auto const & v = values.at(ai);
+    if (v.wasSet)
+    {
+      auto const & l = this->nativeLimits_.at(ai);
+      axes_.at(ai) = lerp<DWORD, float>(v.dwData, l.first, l.second, -1.0f, 1.0f);
+    }
   }
 }
 
