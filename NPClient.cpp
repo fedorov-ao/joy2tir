@@ -402,8 +402,8 @@ public:
 private:
   std::vector<std::shared_ptr<Updated> > updated_;
   std::map<std::string, std::shared_ptr<Joystick> > joysticks_;
-  std::shared_ptr<DInput8JoystickManager> spDI8JoyManager_;
   std::shared_ptr<PoseFactory> spPoseFactory_;
+  std::shared_ptr<DInput8JoystickManager> spDI8JoyManager_;
   TIRDataSetter tirDataSetter_;
 };
 
