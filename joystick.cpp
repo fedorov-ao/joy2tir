@@ -451,14 +451,14 @@ DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid), read
   for (auto & v : axes_)
     v = 0.0f;
   init_();
-  log_message("Created di8 device ", pdid_);
+  //log_message("Created di8 device ", pdid_);
 }
 
 DInput8Joystick::~DInput8Joystick()
 {
-  log_message("DInput8Joystick::~DInput8Joystick()");
+  //log_message("DInput8Joystick::~DInput8Joystick()");
   assert(pdid_);
-  log_message("Releasing di8 device ", pdid_);
+  //log_message("Releasing di8 device ", pdid_);
   pdid_->Unacquire();
   //FIXME Causes client.exe to hang on exit.
   //pdid_->Release();
@@ -612,15 +612,15 @@ DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), inf
   auto result = DirectInput8Create(hInstance, dinputVersion, IID_IDirectInput8, reinterpret_cast<void**>(&pdi_), NULL);
   check_for_dierr(result, "Failed to create DirectInput8");
   assert(pdi_);
-  log_message("Created di8 ", pdi_);
+  //log_message("Created di8 ", pdi_);
   infos_ = get_di8_devices_info(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
 }
 
 DInput8JoystickManager::~DInput8JoystickManager()
 {
-  log_message("DInput8JoystickManager::~DInput8JoystickManager()");
+  //log_message("DInput8JoystickManager::~DInput8JoystickManager()");
   joysticks_.erase(joysticks_.begin(), joysticks_.end());
   assert(pdi_);
-  log_message("Releasing di8 ", pdi_);
+  //log_message("Releasing di8 ", pdi_);
   pdi_->Release();
 }

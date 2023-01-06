@@ -432,18 +432,20 @@ Main::Main()
   if (printJoysticks)
   {
     auto const mode = get_d<int>(config, "printJoysticksMode", 1);
-    log_message("Legacy joysticks");
+    log_message("======Legacy joysticks======");
     auto const legacyJoysticksInfo = get_legacy_joysticks_info();
     for (decltype(legacyJoysticksInfo)::size_type joyID = 0; joyID < legacyJoysticksInfo.size(); ++joyID)
     {
       auto const & info = legacyJoysticksInfo.at(joyID);
       log_message("id: ", joyID, "; ", legacyjoystickinfo_to_str(info, mode));
     }
-    log_message("DirectInput8 joysticks");
+    log_message("============================");
+    log_message("===DirectInput8 joysticks===");
     for (auto const & info : spDI8JoyManager_->get_joysticks_info())
     {
       log_message(di8deviceinfo_to_str(info, mode));
     }
+    log_message("============================");
   }
 
   auto const tirDataFieldsName = "tirDataFields";
@@ -539,7 +541,7 @@ Main::Main()
 
 Main::~Main()
 {
-  log_message("Main::~Main()");
+  //log_message("Main::~Main()");
 }
 
 void Main::set_tir_data_fields(short dataFields)
