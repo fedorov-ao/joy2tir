@@ -531,6 +531,41 @@ void DInput8Joystick::init_()
   result = pdid_->Acquire();
   if (FAILED(result))
     throw std::runtime_error("Failed to acquire");
+  DIJOYSTATE state;
+  result = pdid_->GetDeviceState(sizeof(state), &state);
+  if (FAILED(result))
+    throw std::runtime_error("Failed to get device state");
+  struct { AxisID::type ai; LONG DIJOYSTATE::*member; } axisID2member[] =
+  {
+    { AxisID::x, &DIJOYSTATE::lX },
+    { AxisID::y, &DIJOYSTATE::lY },
+    { AxisID::z, &DIJOYSTATE::lZ },
+    { AxisID::rx, &DIJOYSTATE::lRx },
+    { AxisID::ry, &DIJOYSTATE::lRy },
+    { AxisID::rz, &DIJOYSTATE::lRz }
+  };
+  for (auto a2m : axisID2member)
+  {
+    auto const & ai = a2m.ai;
+    auto const & member = a2m.member;
+    auto const & l = nativeLimits_.at(ai);
+    auto const nv = state.*member;
+    auto const v = lerp<DWORD, float>(nv, l.first, l.second, -1.0f, 1.0f);
+    axes_.at(ai) = v;
+    //log_message(nv, "->", v);
+  }
+  struct { AxisID::type ai; size_t off; } axisID2off[] =
+  {
+    { AxisID::u, 0 },
+    { AxisID::v, 1 }
+  };
+  for (auto a2o : axisID2off)
+  {
+    auto const & ai = a2o.ai;
+    auto const & off = a2o.off;
+    auto const & l = nativeLimits_.at(ai);
+    axes_.at(ai) = lerp<DWORD, float>(state.rglSlider[off], l.first, l.second, -1.0f, 1.0f);
+  }
   ready_ = true;
 }
 
