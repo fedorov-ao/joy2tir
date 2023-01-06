@@ -293,6 +293,12 @@ char const * dierr_to_cstr(HRESULT result)
   }
 }
 
+void check_for_dierr(HRESULT result, char const * msg)
+{
+  if (FAILED(result))
+    throw std::runtime_error(stream_to_str(msg, ": ", dierr_to_cstr(result)));
+}
+
 std::string di8deviceinfo_to_str(DI8DeviceInfo const & info, int mode)
 {
   switch (mode)
@@ -319,7 +325,9 @@ std::string dideviceinstancea_to_str(DIDEVICEINSTANCEA const & ddi)
 
 std::string didevcaps_to_str(DIDEVCAPS const & caps)
 {
-  static char const * fmt = "size: 0x%x; flags: 0x%x; dev type: 0x%x; axes: %d; buttons: %d; pows: %d; ff sample period: %d; ff min time resolution: %d; firmware revision: 0x%x; hardware revision: 0x%x; ff driver version: 0x%x";
+  static char const * fmt = "size: 0x%x; flags: 0x%x; dev type: 0x%x; axes: %d; buttons: %d; pows: %d;"\
+                            "ff sample period: %d; ff min time resolution: %d; firmware revision: 0x%x;"\
+                            "hardware revision: 0x%x; ff driver version: 0x%x";
   char buf[512] = {0};
   snprintf(buf, sizeof(buf), fmt, caps.dwSize, caps.dwFlags, caps.dwDevType, caps.dwAxes, caps.dwButtons, caps.dwPOVs, caps.dwFFSamplePeriod, caps.dwFFMinTimeResolution, caps.dwFirmwareRevision, caps.dwHardwareRevision, caps.dwFFDriverVersion);
   return std::string(buf);
@@ -340,7 +348,7 @@ try {
   //TODO Save device caps
   auto pdid = create_device_by_guid(pData->pdi, lpddi->guidInstance);
   info.caps.dwSize = sizeof(info.caps);
-  auto result = pdid->GetCapabilities(&info.caps);
+  auto const result = pdid->GetCapabilities(&info.caps);
   if (FAILED(result))
     log_message("Failed to get device caps: ", dierr_to_cstr(result));
   else
@@ -357,18 +365,16 @@ std::vector<DI8DeviceInfo> get_di8_devices_info(LPDIRECTINPUT8A pdi, DWORD devTy
 {
   FillDevicesCBData data;
   data.pdi = pdi;
-  auto result = pdi->EnumDevices(devType, fill_devices_cb, &data, flags);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to enum devices");
+  auto const result = pdi->EnumDevices(devType, fill_devices_cb, &data, flags);
+  check_for_dierr(result, "Failed to enum devices");
   return data.infos;
 }
 
 LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanceGUID)
 {
   LPDIRECTINPUTDEVICE8A pdid;
-  auto result = pdi->CreateDevice(instanceGUID, &pdid, NULL);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to create device");
+  auto const result = pdi->CreateDevice(instanceGUID, &pdid, NULL);
+  check_for_dierr(result, "Failed to create device");
   return pdid;
 };
 
@@ -411,7 +417,7 @@ void DInput8Joystick::update()
     if (FAILED(result))
     {
       ready_ = false;
-      throw std::runtime_error(stream_to_str("Failed to get device data: ", dierr_to_cstr(result)));
+      check_for_dierr(result, "Failed to get device data");
     }
     if (inOut == 0)
       break;
@@ -505,8 +511,7 @@ void DInput8Joystick::init_()
   if (ready_)
     return;
   auto result = pdid_->SetDataFormat(&c_dfDIJoystick);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to set data format");
+  check_for_dierr(result, "Failed to set data format");
   DIPROPDWORD dipdBuffSize;
   dipdBuffSize.diph.dwSize = sizeof(DIPROPDWORD);
   dipdBuffSize.diph.dwHeaderSize = sizeof(DIPROPHEADER);
@@ -514,8 +519,7 @@ void DInput8Joystick::init_()
   dipdBuffSize.diph.dwHow = DIPH_DEVICE;
   dipdBuffSize.dwData = buffSize_;
   result = pdid_->SetProperty(DIPROP_BUFFERSIZE, &dipdBuffSize.diph);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to set buffer size");
+  check_for_dierr(result, "Failed to set buffer size");
   DIPROPDWORD dipdAxisMode;
   dipdAxisMode.diph.dwSize = sizeof(DIPROPDWORD);
   dipdAxisMode.diph.dwHeaderSize = sizeof(DIPROPHEADER);
@@ -523,18 +527,14 @@ void DInput8Joystick::init_()
   dipdAxisMode.diph.dwHow = DIPH_DEVICE;
   dipdAxisMode.dwData = DIPROPAXISMODE_ABS;
   result = pdid_->SetProperty(DIPROP_AXISMODE, &dipdAxisMode.diph);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to set axis mode to absolute");
+  check_for_dierr(result, "Failed to set axis mode to absolute");
   result = pdid_->EnumObjects(fill_limits_cb_, this, DIDFT_ABSAXIS);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to fill limits");
+  check_for_dierr(result, "Failed to fill limits");
   result = pdid_->Acquire();
-  if (FAILED(result))
-    throw std::runtime_error("Failed to acquire");
+  check_for_dierr(result, "Failed to acquire");
   DIJOYSTATE state;
   result = pdid_->GetDeviceState(sizeof(state), &state);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to get device state");
+  check_for_dierr(result, "Failed to get device state");
   struct { AxisID::type ai; LONG DIJOYSTATE::*member; } axisID2member[] =
   {
     { AxisID::x, &DIJOYSTATE::lX },
@@ -610,8 +610,7 @@ DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), inf
   auto const hInstance = GetModuleHandle(NULL);
   auto const dinputVersion = 0x800;
   auto result = DirectInput8Create(hInstance, dinputVersion, IID_IDirectInput8, reinterpret_cast<void**>(&pdi_), NULL);
-  if (FAILED(result))
-    throw std::runtime_error("Failed to create DirectInput8");
+  check_for_dierr(result, "Failed to create DirectInput8");
   assert(pdi_);
   log_message("Created di8 ", pdi_);
   infos_ = get_di8_devices_info(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
