@@ -293,10 +293,11 @@ char const * dierr_to_cstr(HRESULT result)
   }
 }
 
-void check_for_dierr(HRESULT result, char const * msg)
+template <class... Args>
+void check_for_dierr(HRESULT result, Args &&... args)
 {
   if (FAILED(result))
-    throw std::runtime_error(stream_to_str(msg, ": ", dierr_to_cstr(result)));
+    throw std::runtime_error(stream_to_str(args..., ": ", dierr_to_cstr(result)));
 }
 
 std::string di8deviceinfo_to_str(DI8DeviceInfo const & info, int mode)
@@ -374,7 +375,7 @@ LPDIRECTINPUTDEVICE8A create_device_by_guid(LPDIRECTINPUT8A pdi, REFGUID instanc
 {
   LPDIRECTINPUTDEVICE8A pdid;
   auto const result = pdi->CreateDevice(instanceGUID, &pdid, NULL);
-  check_for_dierr(result, "Failed to create device");
+  check_for_dierr(result, "Failed to create device for GUID ", guid2str(instanceGUID));
   return pdid;
 };
 
@@ -390,8 +391,13 @@ LPDIRECTINPUTDEVICE8A create_device_by_name(LPDIRECTINPUT8A pdi, std::vector<DI8
 {
   auto instanceGuid = get_guid_by_name(infos, name);
   if (GUID() == instanceGuid)
-    throw std::runtime_error("Cannot find device");
-  return create_device_by_guid(pdi, instanceGuid);
+    throw std::runtime_error(stream_to_str("Cannot find device GUID for name '", name, "'"));
+  try {
+    return create_device_by_guid(pdi, instanceGuid);
+  } catch (std::runtime_error & e)
+  {
+    throw std::runtime_error(stream_to_str("Cannot create device for name '", name, "'"));
+  }
 };
 
 /* DInput8Joystick */
