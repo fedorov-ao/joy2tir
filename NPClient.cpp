@@ -7,6 +7,7 @@
 #include <vector>
 #include <map>
 #include <sstream>
+#include <fstream>
 
 #include <time.h>
 #include <cstring> //memset
@@ -388,6 +389,23 @@ private:
   float rawx_ = 0.0f, rawy_ = 0.0f, rawz_ = 0.0f;
 };
 
+
+std::string get_log_path()
+{
+  std::string logPath;
+  if (auto envLogPath = std::getenv("JOY2TIR_LOG"))
+  {
+    logPath = envLogPath;
+  }
+  else
+  {
+    logPath = get_dir_to_module();
+    append_to_path(logPath, "NPClient.log");
+  }
+  return logPath;
+}
+
+
 /* Main class */
 class Main
 {
@@ -422,6 +440,13 @@ Main::Main()
     configPath = get_dir_to_module();
     append_to_path(configPath, "NPClient.json");
   }
+
+  auto formatter = [](logging::LogMessage const & lm) { return stream_to_str("(", lm.source, ") [", lm.level, "] ", lm.msg); };
+  auto spLogFileSteam = std::make_shared<std::fstream>(get_log_path(), std::ios::out|std::ios::trunc);
+  auto streamHolder = [spLogFileSteam]() -> std::fstream& { return *spLogFileSteam; };
+  auto spLogPrinter = std::make_shared<logging::StreamLogPrinter>(formatter, streamHolder);
+  logging::root_logger().add_printer(spLogPrinter);
+
   logging::log("init", logging::LogLevel::info, "Loading config from: ", configPath);
   std::ifstream configStream (configPath);
   if (!configStream.is_open())
@@ -430,7 +455,7 @@ Main::Main()
 
   auto const logLevelName = get_d<std::string>(config, "logLevel", "INFO");
   auto const logLevel = logging::n2ll(logLevelName);
-  logging::set_log_level(logLevel);
+  logging::root_logger().set_level(logLevel);
   logging::log("init", logging::LogLevel::info, "Setting log level to ", logLevelName);
 
   auto const printJoysticks = get_d<bool>(config, "printJoysticks", false);

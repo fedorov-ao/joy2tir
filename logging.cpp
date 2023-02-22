@@ -34,37 +34,53 @@ LogLevel n2ll(std::string const & name)
   return n2ll(name.c_str());
 }
 
-static LogLevel g_logLevel;
+LogMessage::LogMessage(std::string const & source, LogLevel level, std::string const & msg)
+  : source(source), level(level), msg(msg)
+{}
 
-void set_log_level(LogLevel level)
+void StreamLogPrinter::print(LogMessage const & lm) const
 {
-  g_logLevel = level;
+  auto const msg = formatter_(lm);
+  streamHolder_() << msg << std::endl;
 }
 
-LogLevel get_log_level()
+StreamLogPrinter::StreamLogPrinter(formatter_t const & formatter, stream_holder_t const & streamHolder)
+  : formatter_(formatter), streamHolder_(streamHolder)
+{}
+
+void Logger::log(LogMessage const & lm)
 {
-  return g_logLevel;
+  if (static_cast<int>(lm.level) < static_cast<int>(level_))
+    return;
+  for (auto const & sp : printers_)
+    sp->print(lm);
 }
 
-std::string get_log_path()
+void Logger::set_level(LogLevel level)
 {
-  std::string logPath;
-  if (auto envLogPath = std::getenv("JOY2TIR_LOG"))
-  {
-    logPath = envLogPath;
-  }
-  else
-  {
-    logPath = get_dir_to_module();
-    append_to_path(logPath, "NPClient.log");
-  }
-  return logPath;
+  level_ = level;
 }
 
-std::fstream& get_log_stream()
+LogLevel Logger::get_level() const
 {
-  static auto stream = std::fstream(get_log_path(), std::ios::out | std::ios::trunc);
-  return stream;
-} 
+  return level_;
+}
+
+void Logger::add_printer(std::shared_ptr<LogPrinter> const & spPrinter)
+{
+  if (spPrinter == nullptr)
+    throw std::runtime_error("Log message printer ptr is NULL");
+  printers_.push_back(spPrinter);
+}
+
+Logger::Logger(LogLevel level)
+  : level_(level), printers_()
+{}
+
+Logger & root_logger()
+{
+  static Logger logger;
+  return logger;
+}
 
 } //logging
