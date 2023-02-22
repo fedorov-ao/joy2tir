@@ -252,7 +252,7 @@ void LegacyJoystick::init_()
     this->nativeLimits_.at(i) = get_limits_from_joycaps(jc, nai);
   }
   ready_ = true;
-  log_message("Initialized joystick ", joyID_);
+  logging::log("joystick", logging::LogLevel::debug, "Initialized joystick ", joyID_);
 }
 
 /* DirectInput8 */
@@ -351,14 +351,14 @@ try {
   info.caps.dwSize = sizeof(info.caps);
   auto const result = pdid->GetCapabilities(&info.caps);
   if (FAILED(result))
-    log_message("Failed to get device caps: ", dierr_to_cstr(result));
+    logging::log("joystick", logging::LogLevel::debug, "Failed to get device caps: ", dierr_to_cstr(result));
   else
     pData->infos.push_back(info);
   pdid->Release();
   return DIENUM_CONTINUE;
 } catch (std::exception & e)
 {
-  log_message(e.what());
+  logging::log("joystick", logging::LogLevel::debug, e.what());
   return DIENUM_STOP;
 }
 
@@ -457,14 +457,14 @@ DInput8Joystick::DInput8Joystick(LPDIRECTINPUTDEVICE8A pdid) : pdid_(pdid), read
   for (auto & v : axes_)
     v = 0.0f;
   init_();
-  //log_message("Created di8 device ", pdid_);
+  //logging::log("joystick", logging::LogLevel::debug, "Created di8 device ", pdid_);
 }
 
 DInput8Joystick::~DInput8Joystick()
 {
-  //log_message("DInput8Joystick::~DInput8Joystick()");
+  //logging::log("joystick", logging::LogLevel::debug, "DInput8Joystick::~DInput8Joystick()");
   assert(pdid_);
-  //log_message("Releasing di8 device ", pdid_);
+  //logging::log("joystick", logging::LogLevel::debug, "Releasing di8 device ", pdid_);
   pdid_->Unacquire();
   //FIXME Causes client.exe to hang on exit.
   //pdid_->Release();
@@ -558,7 +558,7 @@ void DInput8Joystick::init_()
     auto const nv = state.*member;
     auto const v = lerp<DWORD, float>(nv, l.first, l.second, -1.0f, 1.0f);
     axes_.at(ai) = v;
-    //log_message(nv, "->", v);
+    //logging::log("joystick", logging::LogLevel::debug, nv, "->", v);
   }
   struct { AxisID::type ai; size_t off; } axisID2off[] =
   {
@@ -618,15 +618,15 @@ DInput8JoystickManager::DInput8JoystickManager() : pdi_(NULL), joysticks_(), inf
   auto result = DirectInput8Create(hInstance, dinputVersion, IID_IDirectInput8, reinterpret_cast<void**>(&pdi_), NULL);
   check_for_dierr(result, "Failed to create DirectInput8");
   assert(pdi_);
-  //log_message("Created di8 ", pdi_);
+  //logging::log("joystick", logging::LogLevel::debug, "Created di8 ", pdi_);
   infos_ = get_di8_devices_info(pdi_, DI8DEVTYPE_JOYSTICK, DIEDFL_ALLDEVICES);
 }
 
 DInput8JoystickManager::~DInput8JoystickManager()
 {
-  //log_message("DInput8JoystickManager::~DInput8JoystickManager()");
+  //logging::log("joystick", logging::LogLevel::debug, "DInput8JoystickManager::~DInput8JoystickManager()");
   joysticks_.erase(joysticks_.begin(), joysticks_.end());
   assert(pdi_);
-  //log_message("Releasing di8 ", pdi_);
+  //logging::log("joystick", logging::LogLevel::debug, "Releasing di8 ", pdi_);
   pdi_->Release();
 }

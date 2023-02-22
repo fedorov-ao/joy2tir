@@ -422,30 +422,35 @@ Main::Main()
     configPath = get_dir_to_module();
     append_to_path(configPath, "NPClient.json");
   }
-  log_message("Loading config from: ", configPath);
+  logging::log("init", logging::LogLevel::info, "Loading config from: ", configPath);
   std::ifstream configStream (configPath);
   if (!configStream.is_open())
     throw std::runtime_error(stream_to_str("Failed to load config from: ", configPath));
   auto config = nlohmann::json::parse(configStream);
 
+  auto const logLevelName = get_d<std::string>(config, "logLevel", "INFO");
+  auto const logLevel = logging::n2ll(logLevelName);
+  logging::set_log_level(logLevel);
+  logging::log("init", logging::LogLevel::info, "Setting log level to ", logLevelName);
+
   auto const printJoysticks = get_d<bool>(config, "printJoysticks", false);
   if (printJoysticks)
   {
     auto const mode = get_d<int>(config, "printJoysticksMode", 1);
-    log_message("======Legacy joysticks======");
+    logging::log("init", logging::LogLevel::info, "======Legacy joysticks======");
     auto const legacyJoysticksInfo = get_legacy_joysticks_info();
     for (decltype(legacyJoysticksInfo)::size_type joyID = 0; joyID < legacyJoysticksInfo.size(); ++joyID)
     {
       auto const & info = legacyJoysticksInfo.at(joyID);
-      log_message("id: ", joyID, "; ", legacyjoystickinfo_to_str(info, mode));
+      logging::log("init", logging::LogLevel::info, "id: ", joyID, "; ", legacyjoystickinfo_to_str(info, mode));
     }
-    log_message("============================");
-    log_message("===DirectInput8 joysticks===");
+    logging::log("init", logging::LogLevel::info, "============================");
+    logging::log("init", logging::LogLevel::info, "===DirectInput8 joysticks===");
     for (auto const & info : spDI8JoyManager_->get_joysticks_info())
     {
-      log_message(di8deviceinfo_to_str(info, mode));
+      logging::log("init", logging::LogLevel::info, di8deviceinfo_to_str(info, mode));
     }
-    log_message("============================");
+    logging::log("init", logging::LogLevel::info, "============================");
   }
 
   auto const tirDataFieldsName = "tirDataFields";
@@ -456,7 +461,7 @@ Main::Main()
     tirDataFields = 0;
     for (auto const & n : tirDataFieldNames)
       tirDataFields |= TIRData::from_cstr(n.get<std::string>().c_str());
-    log_message("TIR data fields to be filled: ", tirDataFieldNames, " (", tirDataFields, ")");
+    logging::log("init", logging::LogLevel::info, "TIR data fields to be filled: ", tirDataFieldNames, " (", tirDataFields, ")");
   }
   tirDataSetter_.set_data(tirDataFields);
 
@@ -500,7 +505,7 @@ Main::Main()
         throw std::runtime_error(stream_to_str("Unknown joystick type: '", type, "'"));
     } catch (std::runtime_error & e)
     {
-      log_message("Could not create joystick '", name, "' (", e.what(), ")");
+      logging::log("init", logging::LogLevel::error, "Could not create joystick '", name, "' (", e.what(), ")");
     }
   }
 
@@ -524,7 +529,7 @@ Main::Main()
       auto itJoystick = joysticks_.find(joyName);
       if (joysticks_.end() == itJoystick)
       {
-        log_message("Could not create mapping for TIR axis '", tirAxisName, "' (joystick '", joyName, "' was not created)");
+        logging::log("init", logging::LogLevel::error, "Could not create mapping for TIR axis '", tirAxisName, "' (joystick '", joyName, "' was not created)");
         continue;
       }
 
@@ -533,7 +538,7 @@ Main::Main()
     }
     catch (std::exception & e)
     {
-      log_message("Could not create mapping ", m, " (", e.what(), ")");
+      logging::log("init", logging::LogLevel::error, "Could not create mapping ", m, " (", e.what(), ")");
     }
   }
   spPoseFactory_ = spPoseFactory;
@@ -541,23 +546,23 @@ Main::Main()
 
 Main::~Main()
 {
-  //log_message("Main::~Main()");
+  //logging::log("main", logging::LogLevel::debug, "Main::~Main()");
 }
 
 void Main::set_tir_data_fields(short dataFields)
 {
   auto const dataFieldsStr = TIRData::to_str(dataFields);
-  log_message("Application requests TIR data fields to be filled: [", dataFieldsStr, "] (", dataFields, ")");
+  logging::log("main", logging::LogLevel::debug, "Application requests TIR data fields to be filled: [", dataFieldsStr, "] (", dataFields, ")");
 
   auto const configDataFields = tirDataSetter_.get_data();
   if (configDataFields == -1)
   {
     tirDataSetter_.set_data(dataFields);
-    log_message("Will fill TIR data fields: [", dataFieldsStr, "] (", dataFields, ")");
+    logging::log("main", logging::LogLevel::debug, "Will fill TIR data fields: [", dataFieldsStr, "] (", dataFields, ")");
   }
   else
   {
-    log_message("Will fill TIR data fields: [", TIRData::to_str(configDataFields), "] (", configDataFields, "), as specified in config");
+    logging::log("main", logging::LogLevel::debug, "Will fill TIR data fields: [", TIRData::to_str(configDataFields), "] (", configDataFields, "), as specified in config");
   }
 }
 
@@ -570,7 +575,7 @@ void Main::update()
     }
     catch (std::runtime_error & e)
     {
-      log_message(e.what());
+      logging::log("main", logging::LogLevel::error, e.what());
     }
 }
 
@@ -578,7 +583,7 @@ void Main::fill_tir_data(void * data)
 {
   auto const pose = spPoseFactory_->make_pose();
   //auto const pose = Pose(100.0f, 110.0f, 120.0f, 10.0f, 20.0f, 30.0f);
-  //log_message("Pose: ", pose);
+  //logging::log("main", logging::LogLevel::debug, "Pose: ", pose);
   tirDataSetter_.set_trackir_data(reinterpret_cast<tir_data*>(data), pose);
 }
 
@@ -589,7 +594,7 @@ Main & get_main()
     return main;
   } catch (std::runtime_error & e)
   {
-    log_message(stream_to_str("Failed to create main object: ", e.what()));
+    logging::log("main", logging::LogLevel::error, stream_to_str("Failed to create main object: ", e.what()));
   }
 }
 
@@ -598,7 +603,7 @@ int __stdcall NP_GetSignature(struct sig_data *signature)
 {
   static_assert(sizeof(sig_data) == 400, "sig_data needs to be 400 chars");
 
-  log_message("NP_GetSignature");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_GetSignature");
 
   static auto const szd = sizeof(sig_data);
   memset(signature, 0, szd);
@@ -609,7 +614,7 @@ int __stdcall NP_GetSignature(struct sig_data *signature)
 
 int __stdcall NP_QueryVersion(short *ver)
 {
-  log_message("NP_QueryVersion");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_QueryVersion");
 
   *ver = 0x0400;
 
@@ -618,35 +623,35 @@ int __stdcall NP_QueryVersion(short *ver)
 
 int __stdcall NP_ReCenter(void)
 {
-  log_message("NP_ReCenter");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_ReCenter");
 
   return 0;
 }
 
 int __stdcall NP_RegisterWindowHandle(void *handle)
 {
-  log_message("NP_RegisterWindowHandle, handle: ", handle);
+  logging::log("wrapper", logging::LogLevel::debug, "NP_RegisterWindowHandle, handle: ", handle);
 
   return 0;
 }
 
 int __stdcall NP_UnregisterWindowHandle(void)
 {
-  log_message("NP_UnregisterWindowHandle");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_UnregisterWindowHandle");
 
   return 0;
 }
 
 int __stdcall NP_RegisterProgramProfileID(short id)
 {
-  log_message("NP_RegisterProgramProfileId, id: ", id);
+  logging::log("wrapper", logging::LogLevel::debug, "NP_RegisterProgramProfileId, id: ", id);
 
   return 0;
 }
 
 int __stdcall NP_RequestData(short dataFields)
 {
-  log_message("NP_RequestData");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_RequestData");
 
   get_main().set_tir_data_fields(dataFields);
 
@@ -655,7 +660,7 @@ int __stdcall NP_RequestData(short dataFields)
 
 int __stdcall NP_GetData(void *data)
 {
-  //log_message("NP_GetData");
+  //logging::log("wrapper", logging::LogLevel::debug, "NP_GetData");
 
   Main & main = get_main();
   try {
@@ -663,7 +668,7 @@ int __stdcall NP_GetData(void *data)
     main.fill_tir_data(data);
   } catch (std::exception & e)
   {
-    log_message("Exception in main loop: ", e.what());
+    logging::log("main", logging::LogLevel::error, "Exception in main loop: ", e.what());
   }
 
   return 0;
@@ -671,28 +676,28 @@ int __stdcall NP_GetData(void *data)
 
 int __stdcall NP_StopCursor(void)
 {
-  log_message("NP_StopCursor");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_StopCursor");
 
   return 0;
 }
 
 int __stdcall NP_StartCursor(void)
 {
-  log_message("NP_StartCursor");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_StartCursor");
 
   return 0;
 }
 
 int __stdcall NP_StartDataTransmission(void)
 {
-  log_message("NP_StartDataTransmission");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_StartDataTransmission");
 
   return 0;
 }
 
 int __stdcall NP_StopDataTransmission(void)
 {
-  log_message("NP_StopDataTransmission");
+  logging::log("wrapper", logging::LogLevel::debug, "NP_StopDataTransmission");
 
   return 0;
 }
