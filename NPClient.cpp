@@ -441,7 +441,15 @@ Main::Main()
     append_to_path(configPath, "NPClient.json");
   }
 
-  auto formatter = [](logging::LogMessage const & lm) { return stream_to_str("(", lm.source, ") [", lm.level, "] ", lm.msg); };
+  auto formatter = [](logging::LogMessage const & lm)
+  {
+    static char const fmt[] = "%H:%M:%S";
+    size_t const n = 128;
+    char timeCstr[n] = {0};
+    auto time = std::localtime(&lm.time);
+    std::strftime(timeCstr, n, fmt, time);
+    return stream_to_str("(", lm.source, ") <", timeCstr, "> [", lm.level, "] ", lm.msg);
+  };
   auto spLogFileSteam = std::make_shared<std::fstream>(get_log_path(), std::ios::out|std::ios::trunc);
   auto streamHolder = [spLogFileSteam]() -> std::fstream& { return *spLogFileSteam; };
   auto spLogPrinter = std::make_shared<logging::StreamLogPrinter>(formatter, streamHolder);

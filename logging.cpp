@@ -34,8 +34,8 @@ LogLevel n2ll(std::string const & name)
   return n2ll(name.c_str());
 }
 
-LogMessage::LogMessage(std::string const & source, LogLevel level, std::string const & msg)
-  : source(source), level(level), msg(msg)
+LogMessage::LogMessage(std::string const & source, LogLevel level, std::time_t const & time, std::string const & msg)
+  : source(source), level(level), time(time), msg(msg)
 {}
 
 void StreamLogPrinter::print(LogMessage const & lm) const

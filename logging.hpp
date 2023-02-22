@@ -7,6 +7,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <ctime>
 
 /* Logging */
 namespace logging
@@ -27,9 +28,10 @@ struct LogMessage
 {
   std::string source;
   LogLevel level;
+  std::time_t time;
   std::string msg;
 
-  LogMessage(std::string const & source, LogLevel level, std::string const & msg);
+  LogMessage(std::string const & source, LogLevel level, std::time_t const & time, std::string const & msg);
 };
 
 class LogPrinter
@@ -64,7 +66,8 @@ public:
     if (static_cast<int>(level) < static_cast<int>(level_))
       return;
     auto const msg = stream_to_str(t...);
-    LogMessage const lm (source, level, msg);
+    auto const time = std::time(nullptr);
+    LogMessage const lm (source, level, time, msg);
     log(lm);
   }
 
