@@ -2,14 +2,20 @@
 #include "logging.hpp"
 #include "joystick.hpp"
 #include "util.hpp"
+#include "guid.hpp"
+#include "path.hpp"
+
 #include "nlohmann/json.hpp"
 
 #include <vector>
 #include <map>
+#include <string>
 #include <sstream>
 #include <fstream>
+#include <iostream>
 
 #include <time.h>
+#include <cstdint>
 #include <cstring> //memset
 #include <cstdlib> //getenv
 

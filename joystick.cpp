@@ -1,5 +1,6 @@
 #include "joystick.hpp"
 #include "util.hpp"
+#include "guid.hpp"
 #include "logging.hpp"
 
 #include <iostream>

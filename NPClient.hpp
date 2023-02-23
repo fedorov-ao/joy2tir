@@ -1,9 +1,5 @@
 #include "sig_data.hpp"
 
-#include <cstdint>
-#include <iostream>
-#include <string>
-
 struct tir_data {
   short status;
   short frame;
